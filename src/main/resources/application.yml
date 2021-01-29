@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: "jdbc:mysql://localhost:3306/cve2docker?useSSL=false&createDatabaseIfNotExist=true&serverTimezone=Europe/Rome"
+    username: root
+    password: enterprise
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5InnoDBDialect
+    hibernate:
+      ddl-auto: update
+  jackson:
+    locale: it_IT
+    time-zone: Europe/Rome
+  config:
+    dockerhub:
+      base-url: https://hub.docker.com
+      max-page-size: 100
+    exploit-db:
+      base-url: https://www.exploit-db.com
+      max-retry-next: 10
+      update: true
+    nist:
+      base-url: https://services.nvd.nist.gov/rest/json/
+      max-page-size: 100
+    github:
+      base-url: https://api.github.com
+      token: fe99ff5d38987b4b48c9cae7ddd35a096b8de529
+      max-page-size: 100
+
+logging:
+  level:
+    com.lprevidente.cve2docker.service: debug
