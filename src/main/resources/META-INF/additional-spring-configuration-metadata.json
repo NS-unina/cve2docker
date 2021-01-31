@@ -1,8 +1,0 @@
-{
-  "properties": [
-    {
-      "name": "spring.config.dockerhub.base-url",
-      "type": "java.lang.String",
-      "description": "The base url to use for docker hub API"
-  }
-] }

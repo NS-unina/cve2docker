@@ -3,14 +3,11 @@ package com.lprevidente.cve2docker.service;
 import com.lprevidente.cve2docker.api.NistAPI;
 import com.lprevidente.cve2docker.entity.pojo.CPE;
 import com.lprevidente.cve2docker.entity.vo.nist.SearchCpeVO;
-import com.lprevidente.cve2docker.entity.vo.nist.SearchCveVO;
-import com.lprevidente.cve2docker.entity.vo.nist.SearchVO;
 import com.lprevidente.cve2docker.entity.vo.nist.VulnerabilityVO;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.jackson.JacksonConverterFactory;
 

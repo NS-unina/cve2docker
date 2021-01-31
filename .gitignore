@@ -31,6 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
-/content
+/content/generated
 
 

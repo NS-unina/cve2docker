@@ -24,26 +24,36 @@ public class WordpressService {
     return SVNClientManager.newInstance(myOptions, myAuthManager);
   }
 
-  public void checkoutPlugin(String pluginName, String version, File destDir) throws SVNException {
-    final var updateClient = getSVNClientManager().getUpdateClient();
-    updateClient.doCheckout(
-        SVNURL.parseURIEncoded(
-            "https://plugins.svn.wordpress.org/" + pluginName + "/tags/" + version),
-        destDir,
-        SVNRevision.HEAD,
-        SVNRevision.HEAD,
-        SVNDepth.INFINITY,
-        true);
+  public boolean checkoutPlugin(String pluginName, String version, File destDir) {
+    try {
+      final var updateClient = getSVNClientManager().getUpdateClient();
+      updateClient.doCheckout(
+          SVNURL.parseURIEncoded(
+              "https://plugins.svn.wordpress.org/" + pluginName + "/tags/" + version),
+          destDir,
+          SVNRevision.HEAD,
+          SVNRevision.HEAD,
+          SVNDepth.INFINITY,
+          true);
+      return true;
+    } catch (SVNException e) {
+      return false;
+    }
   }
 
-  public void checkoutTheme(String themeName, String version, File destDir) throws SVNException {
-    final var updateClient = getSVNClientManager().getUpdateClient();
-    updateClient.doCheckout(
-        SVNURL.parseURIEncoded("https://themes.svn.wordpress.org/" + themeName + "/" + version),
-        destDir,
-        SVNRevision.HEAD,
-        SVNRevision.HEAD,
-        SVNDepth.INFINITY,
-        true);
+  public boolean checkoutTheme(String themeName, String version, File destDir) {
+    try {
+      final var updateClient = getSVNClientManager().getUpdateClient();
+      updateClient.doCheckout(
+          SVNURL.parseURIEncoded("https://themes.svn.wordpress.org/" + themeName + "/" + version),
+          destDir,
+          SVNRevision.HEAD,
+          SVNRevision.HEAD,
+          SVNDepth.INFINITY,
+          true);
+      return true;
+    } catch (SVNException e) {
+      return false;
+    }
   }
 }

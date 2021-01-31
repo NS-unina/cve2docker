@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
-import org.apache.commons.lang3.StringUtils;
+import org.springframework.expression.ParseException;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,10 +39,11 @@ public class Version implements Comparable<Version> {
    * @return A new Version object.
    * @throws Exception When there is an error parsing the String.
    */
-  public static Version parse(String toParse) throws Exception {
+  public static Version parse(String toParse) throws ParseException {
     Matcher m = STD_VERSION_PATT.matcher(toParse);
 
-    if (!m.find()) throw new Exception(String.format("Error parsing version from '%s'", toParse));
+    if (!m.find())
+      throw new ParseException(0, String.format("Error parsing version from '%s'", toParse));
 
     Version v = new Version();
     v.rawVersion = toParse;
@@ -55,7 +56,7 @@ public class Version implements Comparable<Version> {
 
     if (isNotEmpty(m.group(4))) v.setRevision(m.group(4));
 
-    if(isNotEmpty(m.group(5))) v.setSufix(m.group(4));
+    if (isNotEmpty(m.group(5))) v.setSufix(m.group(4));
 
     return v;
   }
