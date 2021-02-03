@@ -1,5 +1,6 @@
 package com.lprevidente.cve2docker.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
@@ -16,6 +17,7 @@ import org.tmatesoft.svn.core.wc.SVNWCUtil;
 import java.io.File;
 
 @Service
+@Slf4j
 public class WordpressService {
 
   public SVNClientManager getSVNClientManager() throws SVNException {
@@ -26,6 +28,8 @@ public class WordpressService {
 
   public boolean checkoutPlugin(String pluginName, String version, File destDir) {
     try {
+      log.debug(
+          "[checkoutPlugin] Request checkout - pluginName = {}  version = {}", pluginName, version);
       final var updateClient = getSVNClientManager().getUpdateClient();
       updateClient.doCheckout(
           SVNURL.parseURIEncoded(
@@ -37,12 +41,15 @@ public class WordpressService {
           true);
       return true;
     } catch (SVNException e) {
+      log.warn("[checkoutPlugin] Unable to checkout: " + e.getMessage());
       return false;
     }
   }
 
   public boolean checkoutTheme(String themeName, String version, File destDir) {
     try {
+      log.debug(
+          "[checkoutTheme] Request checkout - pluginName = {}  version = {}", themeName, version);
       final var updateClient = getSVNClientManager().getUpdateClient();
       updateClient.doCheckout(
           SVNURL.parseURIEncoded("https://themes.svn.wordpress.org/" + themeName + "/" + version),
@@ -53,6 +60,7 @@ public class WordpressService {
           true);
       return true;
     } catch (SVNException e) {
+      log.warn("[checkoutTheme] Unable to checkout: " + e.getMessage());
       return false;
     }
   }

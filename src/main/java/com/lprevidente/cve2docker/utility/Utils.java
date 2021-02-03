@@ -42,6 +42,17 @@ public class Utils {
     return String.join("\n", reader.lines().toArray(String[]::new));
   }
 
+  public static String executeProgram(File dir, String... cmd)
+      throws IOException, InterruptedException {
+    ProcessBuilder builder = new ProcessBuilder(cmd);
+    builder.directory(dir.getCanonicalFile());
+    builder.redirectErrorStream(true);
+    Process process = builder.start();
+    process.waitFor();
+    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+    return String.join("\n", reader.lines().toArray(String[]::new));
+  }
+
   /**
    * Execute the library composerize to transform a cmd of type 'docker run' to a docker-compose
    *

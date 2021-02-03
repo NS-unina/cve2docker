@@ -1,6 +1,7 @@
 package com.lprevidente.cve2docker.service;
 
 import com.lprevidente.cve2docker.TestBase;
+import com.lprevidente.cve2docker.entity.pojo.WordpressType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
@@ -17,14 +18,14 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SystemCve2DockerTest extends TestBase {
 
   @Value("${spring.config.exploits-dir}")
-  private String BASE_DIR;
+  private String EXPLOITS_DIR;
 
   @Autowired private SystemCve2Docker service;
 
   @Test
-  public void genConfigurationFromExploitWordpressPlugin() throws IOException {
+  public void genConfigurationFromExploitWordpressPluginFormMaker() throws IOException {
     var edbID = "44559";
-    File dir = new File(BASE_DIR + "/" + edbID);
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     dir.delete();
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
@@ -48,9 +49,87 @@ public class SystemCve2DockerTest extends TestBase {
   }
 
   @Test
+  public void genConfigurationFromExploitWordpressPluginWPPaginate() throws IOException {
+    var edbID = "49355";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    dir.delete();
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertTrue(dir.exists());
+
+    // Check that there is the 'plugin' directory with the folder
+    // corresponding to the downloaded plugin inside
+    var pluginDir = new File(dir, "plugins/");
+    assertTrue(pluginDir.exists());
+    var files = pluginDir.listFiles();
+    assertNotNull(files);
+    assertEquals(1, files.length);
+
+    // Check there is a docker-compose
+    var file = new File(dir, "docker-compose.yml");
+    assertTrue(file.exists());
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("PLUGIN_NAME=wp-paginate"));
+  }
+
+  @Test
+  public void genConfigurationFromExploitWordpressPluginStripePayments() throws IOException {
+    var edbID = "49354";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    dir.delete();
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertTrue(dir.exists());
+
+    // Check that there is the 'plugin' directory with the folder
+    // corresponding to the downloaded plugin inside
+    var pluginDir = new File(dir, "plugins/");
+    assertTrue(pluginDir.exists());
+    var files = pluginDir.listFiles();
+    assertNotNull(files);
+    assertEquals(1, files.length);
+
+    // Check there is a docker-compose
+    var file = new File(dir, "docker-compose.yml");
+    assertTrue(file.exists());
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("PLUGIN_NAME=stripe-payments"));
+  }
+
+  @Test
+  public void genConfigurationFromExploitWordpressEasyContactForm() throws IOException {
+    var edbID = "49427";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    dir.delete();
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertTrue(dir.exists());
+
+    // Check that there is the 'plugin' directory with the folder
+    // corresponding to the downloaded plugin inside
+    var pluginDir = new File(dir, "plugins/");
+    assertTrue(pluginDir.exists());
+    var files = pluginDir.listFiles();
+    assertNotNull(files);
+    assertEquals(1, files.length);
+
+    // Check there is a docker-compose
+    var file = new File(dir, "docker-compose.yml");
+    assertTrue(file.exists());
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("PLUGIN_NAME=easy-contact-form"));
+  }
+
+  @Test
   public void genConfigurationFromExploitWordpressTheme() throws IOException {
     var edbID = "48083";
-    File dir = new File(BASE_DIR + "/" + edbID);
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     dir.delete();
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
@@ -78,7 +157,7 @@ public class SystemCve2DockerTest extends TestBase {
   @Test
   public void genConfigurationFromExploitWordpressThemeNoSVN() throws IOException {
     var edbID = "39552";
-    File dir = new File(BASE_DIR + "/" + edbID);
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     dir.delete();
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
@@ -103,9 +182,8 @@ public class SystemCve2DockerTest extends TestBase {
 
   @Test
   public void genConfigurationFromExploitWordpressCore() throws IOException {
-
     final var edbID = "47557";
-    File dir = new File(BASE_DIR + "/" + edbID);
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     dir.delete();
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
@@ -121,11 +199,20 @@ public class SystemCve2DockerTest extends TestBase {
   }
 
   @Test
-  public void genConfigurationFromExploitWordpressCore2Version() {
+  public void genConfigurationFromExploitWordpressCore2Version() throws IOException {
     final var edbID = "29598";
-    File dir = new File(BASE_DIR + "/" + edbID);
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     dir.delete();
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertTrue(dir.exists());
+
+    // Check there is a docker-compose
+    var file = new File(dir, "docker-compose.yml");
+    assertTrue(file.exists());
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("WORDPRESS_VERSION=5.2.4"));
   }
 }

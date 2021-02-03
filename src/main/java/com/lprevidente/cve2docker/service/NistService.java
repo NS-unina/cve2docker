@@ -55,7 +55,6 @@ public class NistService {
 
   public SearchCpeVO getCpes(@NonNull CPE cpe) throws IOException {
     log.debug("[getCpes] Request to NIST cpe = {}", cpe.toCpeString());
-    log.debug("url {}", nistAPI.getCPEs(cpe.toCpeString()).request().url().url().toString());
     var response = nistAPI.getCPEs(cpe.toCpeString()).execute();
     log.debug("[getCpes] Response from NIST {}", response.code());
     return response.isSuccessful() && response.body() != null ? response.body() : null;

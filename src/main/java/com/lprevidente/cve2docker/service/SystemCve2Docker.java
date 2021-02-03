@@ -1,9 +1,13 @@
 package com.lprevidente.cve2docker.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.lprevidente.cve2docker.entity.pojo.CPE;
 import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
 import com.lprevidente.cve2docker.entity.pojo.Version;
 import com.lprevidente.cve2docker.entity.pojo.WordpressType;
+import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.Utils;
@@ -15,12 +19,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ParseException;
 import org.springframework.stereotype.Service;
-import org.yaml.snakeyaml.Yaml;
 
+import javax.naming.ConfigurationException;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static com.lprevidente.cve2docker.utility.Utils.extractZip;
@@ -33,10 +43,16 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 public class SystemCve2Docker {
 
   @Value("${spring.config.exploits-dir}")
-  private String BASE_DIR;
+  private String EXPLOITS_DIR;
 
   @Value("${spring.config.wordpress-dir}")
   private String WORDPRESS_DIR;
+
+  private final Long MAX_TIME_TEST;
+
+  public SystemCve2Docker(@Value("${spring.config.max-time-test}") Integer MAX_TIME_TEST) {
+    this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);;
+  }
 
   private static final Pattern PATTERN_VERSION_EXPLOITDB =
       Pattern.compile(
@@ -56,7 +72,7 @@ public class SystemCve2Docker {
   @Autowired private WordpressService wordpressService;
 
   public void genConfigurationFromExploit(@NonNull String edbID)
-      throws ExploitUnsupported, IOException {
+      throws ExploitUnsupported, IOException, ConfigurationException {
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(Long.parseLong(edbID));
@@ -64,6 +80,8 @@ public class SystemCve2Docker {
     }
 
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
+
+    log.info("Exploit Found in ExploitDB");
 
     if (!exploitDB.getPlatform().equalsIgnoreCase("PHP"))
       throw new ExploitUnsupported("Platform not supported");
@@ -73,15 +91,12 @@ public class SystemCve2Docker {
   }
 
   public void genConfigurationForWordpress(@NonNull ExploitDB exploit)
-      throws ExploitUnsupported, IOException {
+      throws ExploitUnsupported, IOException, ConfigurationException {
+    log.info("Generating configuration for Wordpress Exploit");
     final var matcherWordpress = PATTERN_WORDPRESS.matcher(exploit.getTitle());
 
     if (!matcherWordpress.find())
       throw new ExploitUnsupported("Pattern title unknown: " + exploit.getTitle());
-
-    final var exploitDir = new File(BASE_DIR + "/" + exploit.getId());
-    if (!exploitDir.exists() && !exploitDir.mkdirs())
-      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
 
     // Extract from title the Type and Target (aka Product)
     var type = WordpressType.valueOf(matcherWordpress.group(1).trim().toUpperCase());
@@ -100,6 +115,10 @@ public class SystemCve2Docker {
     final var secondVersion = matcher.group(4);
 
     String versionWordpress = null;
+
+    final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
+    if (!exploitDir.exists() && !exploitDir.mkdirs())
+      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
 
     if (type == WordpressType.CORE) {
       SearchTagVO.TagVO tag;
@@ -162,10 +181,14 @@ public class SystemCve2Docker {
 
     // Copy the config files
     copyWordpressContent(exploitDir, type, target, versionWordpress);
+    log.info("Configuration created. Testing the correctness of configuration");
+
+    // Activate any plugin/theme and test the configuration
+    testCorrectnessConfiguration(exploitDir, type, target);
+    log.info("Configuration is correct");
   }
 
   private SearchTagVO.TagVO findTagForWordpress(Version version) throws IOException {
-    // Create CPE
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
 
     // Return all CPE that match the previous
@@ -212,13 +235,23 @@ public class SystemCve2Docker {
       throws IOException {
 
     FileUtils.copyDirectory(new File(WORDPRESS_DIR), baseDir);
-    // Read Docker-compose
-    var dockerCompose = new File(baseDir, "docker-compose.yml");
-    var dockerContent = readFileToString(dockerCompose, StandardCharsets.UTF_8);
 
     // Copy the env file and append the plugin or theme name
     var env = new File(baseDir, ".env");
     var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
+
+    //  Read Docker-compose
+    final var yamlFactory =
+        new YAMLFactory()
+            .configure(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR, true)
+            .configure(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS, true)
+            .configure(YAMLGenerator.Feature.MINIMIZE_QUOTES, true)
+            .configure(YAMLGenerator.Feature.INDENT_ARRAYS, true)
+            .configure(YAMLGenerator.Feature.WRITE_DOC_START_MARKER, false);
+
+    ObjectMapper om = new ObjectMapper(yamlFactory);
+    final var dockerCompose =
+        om.readValue(new File(baseDir, "docker-compose.yml"), DockerCompose.class);
 
     switch (type) {
       case CORE:
@@ -226,23 +259,73 @@ public class SystemCve2Docker {
         break;
       case PLUGIN:
         contentEnv += "\nPLUGIN_NAME=" + target;
-        dockerContent =
-            StringUtils.replaceOnce(
-                dockerContent,
-                "volumes:\n  ",
-                "volumes:\n      - ./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}\n  ");
+        dockerCompose
+            .getServices()
+            .get("wp")
+            .getVolumes()
+            .add("./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}");
+        dockerCompose
+            .getServices()
+            .get("wpcli")
+            .getVolumes()
+            .add("./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}");
         break;
       case THEME:
         contentEnv += "\nTHEME_NAME=" + target;
-        dockerContent =
-            StringUtils.replaceOnce(
-                dockerContent,
-                "volumes:\n  ",
-                "volumes:\n      - ./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}\n  ");
+        dockerCompose
+            .getServices()
+            .get("wp")
+            .getVolumes()
+            .add("./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}");
+        dockerCompose
+            .getServices()
+            .get("wpcli")
+            .getVolumes()
+            .add("./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}");
         break;
     }
 
     write(env, contentEnv, StandardCharsets.UTF_8);
-    write(dockerCompose, dockerContent, StandardCharsets.UTF_8);
+    om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
+  }
+
+  public void testCorrectnessConfiguration(File exploitDir, WordpressType type, String target)
+      throws ConfigurationException {
+    try {
+      var res = Utils.executeProgram(exploitDir, "sh", "start.sh");
+      if (!res.equals("ok")) throw new ConfigurationException("Impossible to start docker: " + res);
+
+      final long start = System.currentTimeMillis();
+      final var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+      final var request =
+          HttpRequest.newBuilder(new URI("http://localhost/wp-admin/install.php")).GET().build();
+      // White until wordpress start
+      while ((System.currentTimeMillis() - start) <= MAX_TIME_TEST) {
+        try {
+          var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+          if (response.statusCode() == 200) {
+            res =
+                Utils.executeProgram(
+                    exploitDir, "sh", "setup.sh", type.name().toLowerCase(), target);
+            if (!res.equals("ok"))
+              throw new ConfigurationException("Impossible to start docker: " + res);
+
+            Utils.executeProgram(exploitDir, "docker-compose", "stop");
+            return;
+          }
+        } catch (IOException ignore) {
+        }
+      }
+
+      throw new ConfigurationException(
+          "Exceeded the maximum time to test. Maybe te configuration is not correct");
+    } catch (IOException | InterruptedException | URISyntaxException e) {
+      e.printStackTrace();
+      try {
+        log.debug(Utils.executeProgram(exploitDir, "docker-compose", "stop"));
+      } catch (Exception ignored) {
+      }
+      throw new ConfigurationException("Impossible to test configuration: " + e.getMessage());
+    }
   }
 }
