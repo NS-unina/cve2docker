@@ -2,6 +2,7 @@ spring:
   config:
     exploits-dir: ./content/generated
     wordpress-dir: ./content/wordpress
+    joomla-dir: ./content/joomla
     max-time-test: 2 # min
     dockerhub:
       base-url: https://hub.docker.com

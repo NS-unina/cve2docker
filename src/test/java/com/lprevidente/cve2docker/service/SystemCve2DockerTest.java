@@ -29,7 +29,7 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressPluginFormMaker() throws IOException {
     var edbID = "44559";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
@@ -45,7 +45,7 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressPluginWPPaginate() throws IOException {
     var edbID = "49355";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
@@ -62,7 +62,7 @@ public class SystemCve2DockerTest extends TestBase {
     var edbID = "48919";
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
@@ -79,7 +79,7 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressEasyContactForm() throws IOException {
     var edbID = "49427";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertThrows(ExploitUnsupported.class, () -> service.genConfigurationFromExploit(edbID));
   }
@@ -91,7 +91,7 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressTheme() throws IOException {
     var edbID = "48083";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
@@ -108,7 +108,7 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressThemeNoSVN() throws IOException {
     var edbID = "39552";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
@@ -124,7 +124,7 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressCore() throws IOException {
     final var edbID = "47557";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
@@ -140,12 +140,60 @@ public class SystemCve2DockerTest extends TestBase {
   public void genConfigurationFromExploitWordpressCore2Version() throws IOException {
     final var edbID = "41224";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    dir.delete();
+    FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=4.7.1"));
+  }
+
+  /**
+   * Exploit Joomla <i>Component</i> JS Job with VulnApp.
+   */
+  @Test
+  public void genConfigurationFromExploitJoomlaComponentJsJob() throws IOException {
+    final var edbID = "47232";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    FileUtils.deleteDirectory(dir);
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("COMPONENT_NAME=b8df21a9bed50ce4ee1681e0077e3b5d-jsjobs.zip"));
+  }
+
+  /**
+   * Exploit Joomla <i>Component</i> Easy Shop with VulnApp.
+   */
+  @Test
+  public void genConfigurationFromExploitJoomlaComponentEasyShop() throws IOException {
+    final var edbID = "46219";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    FileUtils.deleteDirectory(dir);
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("COMPONENT_NAME=cba36c9f7233ca178bc62bf0bd41115d-com_easyshop-v1.2.3.zip"));
+  }
+
+  /**
+   * Exploit Joomla <i>Component</i> Proclaim with VulnApp.
+   */
+  @Test
+  public void genConfigurationFromExploitJoomlaComponentProclaim() throws IOException {
+    final var edbID = "44164";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    FileUtils.deleteDirectory(dir);
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(envContent.contains("COMPONENT_NAME=6ac663f3794ba28f8c736c2881e44b1e-pkg_proclaim.zip"));
   }
 }

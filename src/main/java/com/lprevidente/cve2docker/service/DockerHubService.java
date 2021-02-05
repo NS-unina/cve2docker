@@ -160,11 +160,9 @@ public class DockerHubService {
    * @param text what should be contained in the name of the tag. In case of null or empty all tags
    *     are compared.
    * @return <b>empty</b> list if not the tag exist
-   * @throws IOException throw when there is a problem performing the request or the *
-   *     deserialization.
    */
   public List<SearchTagVO.TagVO> searchTags(
-      String owner, @NonNull String repository, String text) throws IOException {
+      String owner, @NonNull String repository, String text) {
     int page = 1;
     SearchTagVO searchRepo;
     var tags = new ArrayList<SearchTagVO.TagVO>();
@@ -190,12 +188,10 @@ public class DockerHubService {
    * @param text what should be contained in the name of the tag. In case of null or empty all tags
    *     are compared.
    * @return <b>empty</b> list if not the tag exist
-   * @throws IOException throw when there is a problem performing the request or the *
-   *     deserialization.
    * @throws IllegalArgumentException throws when the repoFullName is not correct
    */
   public List<SearchTagVO.TagVO> searchTags(@NonNull String repoFullName, String text)
-      throws IOException, IllegalArgumentException {
+      throws IllegalArgumentException {
     var split = repoFullName.split("/");
     String owner;
     String repoName;
