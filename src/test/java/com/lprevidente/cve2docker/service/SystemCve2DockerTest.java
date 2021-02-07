@@ -117,9 +117,7 @@ public class SystemCve2DockerTest extends TestBase {
     assertTrue(envContent.contains("THEME_NAME=beauty-&-clean/beauty-premium"));
   }
 
-  /**
-   * Exploit Wordpress <i>Core</i> with Software Link, but this should not be used.
-   */
+  /** Exploit Wordpress <i>Core</i> with Software Link, but this should not be used. */
   @Test
   public void genConfigurationFromExploitWordpressCore() throws IOException {
     final var edbID = "47557";
@@ -133,9 +131,7 @@ public class SystemCve2DockerTest extends TestBase {
     assertTrue(envContent.contains("WORDPRESS_VERSION=5.2.4"));
   }
 
-  /**
-   * Exploit Wordpress <i>Core</i> with 2 versions 4.7.0/4.7.1.
-   */
+  /** Exploit Wordpress <i>Core</i> with 2 versions 4.7.0/4.7.1. */
   @Test
   public void genConfigurationFromExploitWordpressCore2Version() throws IOException {
     final var edbID = "41224";
@@ -149,9 +145,7 @@ public class SystemCve2DockerTest extends TestBase {
     assertTrue(envContent.contains("WORDPRESS_VERSION=4.7.1"));
   }
 
-  /**
-   * Exploit Joomla <i>Component</i> JS Job with VulnApp.
-   */
+  /** Exploit Joomla <i>Component</i> JS Job with VulnApp. */
   @Test
   public void genConfigurationFromExploitJoomlaComponentJsJob() throws IOException {
     final var edbID = "47232";
@@ -165,9 +159,7 @@ public class SystemCve2DockerTest extends TestBase {
     assertTrue(envContent.contains("COMPONENT_NAME=b8df21a9bed50ce4ee1681e0077e3b5d-jsjobs.zip"));
   }
 
-  /**
-   * Exploit Joomla <i>Component</i> Easy Shop with VulnApp.
-   */
+  /** Exploit Joomla <i>Component</i> Easy Shop with VulnApp. */
   @Test
   public void genConfigurationFromExploitJoomlaComponentEasyShop() throws IOException {
     final var edbID = "46219";
@@ -178,12 +170,12 @@ public class SystemCve2DockerTest extends TestBase {
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("COMPONENT_NAME=cba36c9f7233ca178bc62bf0bd41115d-com_easyshop-v1.2.3.zip"));
+    assertTrue(
+        envContent.contains(
+            "COMPONENT_NAME=cba36c9f7233ca178bc62bf0bd41115d-com_easyshop-v1.2.3.zip"));
   }
 
-  /**
-   * Exploit Joomla <i>Component</i> Proclaim with VulnApp.
-   */
+  /** Exploit Joomla <i>Component</i> Proclaim with VulnApp. */
   @Test
   public void genConfigurationFromExploitJoomlaComponentProclaim() throws IOException {
     final var edbID = "44164";
@@ -194,6 +186,32 @@ public class SystemCve2DockerTest extends TestBase {
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("COMPONENT_NAME=6ac663f3794ba28f8c736c2881e44b1e-pkg_proclaim.zip"));
+    assertTrue(
+        envContent.contains("COMPONENT_NAME=6ac663f3794ba28f8c736c2881e44b1e-pkg_proclaim.zip"));
+  }
+
+  /** Exploit Joomla <i>Component</i> Google Map Landkarten with VulnApp. */
+  @Test
+  public void genConfigurationFromExploitJoomlaComponentGoogleMapLandkarten() throws IOException {
+    final var edbID = "44113";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    FileUtils.deleteDirectory(dir);
+
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+
+    var env = new File(dir, ".env");
+    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
+    assertTrue(
+        envContent.contains("COMPONENT_NAME=75b746a6c5cf1caa4aa1348f19247562-com_gmap_4.2.3.zip"));
+  }
+
+  /** Exploit Joomla <i>Component</i> no VulnApp. */
+  @Test
+  public void genConfigurationFromExploitJoomlaNoVulnApp() throws IOException {
+    final var edbID = "48202";
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    FileUtils.deleteDirectory(dir);
+
+    assertThrows(ExploitUnsupported.class, () -> service.genConfigurationFromExploit(edbID));
   }
 }

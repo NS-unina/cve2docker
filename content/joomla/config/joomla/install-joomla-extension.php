@@ -318,6 +318,14 @@ class JoomlaExtensionInstallerCli extends JApplicationCli
 
         return;
     }
+
+    public function setBody() {
+        // FIXME: emtpy
+    }
+
+    public function toString() {
+        // FIXME: emtpy
+    }
 }
 
 $app                   = JApplicationCli::getInstance('JoomlaExtensionInstallerCli');
