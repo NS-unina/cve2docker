@@ -1,26 +1,343 @@
 package com.lprevidente.cve2docker.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import com.lprevidente.cve2docker.entity.pojo.CPE;
+import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
+import com.lprevidente.cve2docker.entity.pojo.Version;
+import com.lprevidente.cve2docker.entity.pojo.WordpressType;
+import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
+import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
+import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import lombok.NonNull;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.expression.ParseException;
 import org.springframework.stereotype.Service;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationManager;
-import org.tmatesoft.svn.core.internal.util.SVNEncodingUtil;
-import org.tmatesoft.svn.core.io.SVNRepository;
-import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.ISVNOptions;
 import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
+import javax.naming.ConfigurationException;
 import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+
+import static com.lprevidente.cve2docker.utility.Utils.*;
+import static com.lprevidente.cve2docker.utility.Utils.executeProgram;
+import static org.apache.commons.io.FileUtils.readFileToString;
+import static org.apache.commons.io.FileUtils.write;
+import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Service
 @Slf4j
 public class WordpressService {
 
-  public SVNClientManager getSVNClientManager() throws SVNException {
+  @Value("${spring.config.exploits-dir}")
+  private String EXPLOITS_DIR;
+
+  @Value("${spring.config.wordpress.base-dir}")
+  private String WORDPRESS_DIR;
+
+  @Value("${spring.config.wordpress.endpoint-to-test}")
+  private String ENDPOINT_TO_TEST;
+
+  private final Long MAX_TIME_TEST;
+
+  @Autowired private SystemCve2Docker systemCve2Docker;
+
+  public WordpressService(
+      @Value("${spring.config.wordpress.max-time-test}") Integer MAX_TIME_TEST) {
+    this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
+  }
+
+  private static final Pattern PATTERN_VERSION_EXPLOITDB =
+      Pattern.compile(
+          "(<(?:\\s))?(\\d(?:[.][\\d+|x]+)(?:[.][\\d|x]+)?)(\\/)?(\\d(?:[.][\\d|x]+)?(?:[.][\\d|x])?)?",
+          Pattern.CASE_INSENSITIVE);
+
+  private static final Pattern PATTERN_WORDPRESS =
+      Pattern.compile(
+          "WordPress(?:.*)\\s(Plugin|Theme|Core)(.*?)-(?:\\s)", Pattern.CASE_INSENSITIVE);
+
+  private static final Pattern PATTERN_TARGET_WORDPRESS =
+      Pattern.compile(
+          "wordpress.org\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
+          Pattern.CASE_INSENSITIVE);
+
+  @SneakyThrows
+  public void genConfiguration(@NonNull ExploitDB exploit) {
+    log.info("Generating configuration for Wordpress Exploit");
+    final var matcherWordpress = PATTERN_WORDPRESS.matcher(exploit.getTitle());
+
+    if (!matcherWordpress.find())
+      throw new ExploitUnsupported("Pattern title unknown: " + exploit.getTitle());
+
+    // Extract from title the Type and Target (aka Product)
+    var type = WordpressType.valueOf(matcherWordpress.group(1).trim().toUpperCase());
+    var target = matcherWordpress.group(2).trim();
+
+    // Extract the version from title
+    final var matcher = PATTERN_VERSION_EXPLOITDB.matcher(target);
+    if (!matcher.find()) throw new ExploitUnsupported("Pattern version unknown: " + target);
+
+    // Remove the version
+    String product = null;
+    if (StringUtils.isNotBlank(exploit.getSoftwareLink())) {
+      var targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getSoftwareLink());
+      if (targetMatcher.find()) product = targetMatcher.group(1);
+      else if (StringUtils.isNotBlank(exploit.getProductLink())) {
+        targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getProductLink());
+        if (targetMatcher.find()) product = targetMatcher.group(1);
+      }
+    }
+    if (product == null) product = formatString(target.replace(matcher.group(), ""));
+
+    final var less = matcher.group(1);
+    final var firstVersion = matcher.group(2);
+    final var slash = matcher.group(3);
+    final var secondVersion = matcher.group(4);
+
+    String versionWordpress = null;
+
+    final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
+    if (!exploitDir.exists() && !exploitDir.mkdirs())
+      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
+
+    if (type == WordpressType.CORE) {
+      SearchTagVO.TagVO tag;
+      try {
+        if (isBlank(less) && isNotBlank(firstVersion) && isBlank(slash))
+          tag = findTag(Version.parse(firstVersion));
+        else if (isNotBlank(firstVersion) && isNotBlank(slash) && isNotBlank(secondVersion)) {
+          // Search at first for the first version, if no tag found search for the second
+          tag = findTag(Version.parse(firstVersion));
+          if (tag == null) tag = findTag(Version.parse(secondVersion));
+
+        } else if (isNotBlank(less) && isNotBlank(firstVersion)) {
+          tag = findTag(Version.parse(firstVersion));
+          if (tag == null) {
+            // TODO: sistemare
+            log.info("Tag not found with version < {}", firstVersion);
+          }
+        } else throw new ExploitUnsupported("Combination of versions not supported");
+      } catch (ParseException e) {
+        log.warn(e.toString());
+        throw new ExploitUnsupported(e);
+      }
+
+      if (tag != null) versionWordpress = tag.getName();
+      else throw new ExploitUnsupported("No docker image Wordpress compatible found");
+
+    } else {
+      var isCheckout = false;
+      File typeDir;
+      switch (type) {
+        case PLUGIN:
+          typeDir = new File(exploitDir, "/plugins/" + product);
+          if (!typeDir.exists() && !typeDir.mkdirs())
+            throw new IOException("Impossible to create folder: " + typeDir.getPath());
+          isCheckout = checkoutPlugin(product, firstVersion, typeDir);
+          break;
+
+        case THEME:
+          typeDir = new File(exploitDir, "/themes/" + product);
+          if (!typeDir.exists() && !typeDir.mkdirs())
+            throw new IOException("Impossible to create folder: " + typeDir.getPath());
+          isCheckout = checkoutTheme(product, firstVersion, typeDir);
+          break;
+
+        default:
+          throw new IllegalStateException("Unexpected value: " + type);
+      }
+
+      // If checkout has failed and exploit has a vuln app, download and extract it
+      if (!isCheckout && exploit.getFilenameVulnApp() != null) {
+        log.info("Exploit has vuln App. Downloading and extracting it");
+        final var zipFile = new File(exploitDir, exploit.getFilenameVulnApp());
+        systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
+        extractZip(zipFile, typeDir);
+        var files = typeDir.listFiles();
+        if (files != null && files.length == 1 && files[0].isDirectory())
+          product += "/" + files[0].getName();
+      } else if (!isCheckout)
+        throw new ExploitUnsupported(type + " not found in SVN and no Vulnerable App exist");
+    }
+
+    // Copy the config files
+    copyContent(exploitDir, type, product, versionWordpress);
+    log.info("Configuration created. Trying to configure it");
+
+    // Activate any plugin/theme and test the configuration
+    setupConfiguration(exploitDir, type, product);
+    log.info("Container configured correctly!");
+  }
+
+  private SearchTagVO.TagVO findTag(Version version) throws IOException {
+    final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
+
+    // Return all CPE that match the previous
+    final var cpes = systemCve2Docker.getCpes(cpe);
+    if (cpes == null || cpes.getResult().getCpes().isEmpty()) return null;
+
+    SearchTagVO.TagVO tag = null;
+
+    //  Cycle through all CPE until find a tag on dockerhub corresponding to the version
+    final var iterator = cpes.getResult().getCpes().iterator();
+    while (iterator.hasNext() && tag == null) {
+      var cpeMatchVO = iterator.next();
+      final var tags =
+          systemCve2Docker.searchTags(
+              cpe.getProduct(), cpeMatchVO.getCpe().getVersion().toString());
+
+      // Search for a tag with the exact name of the version
+      tag =
+          tags.stream()
+              .filter(
+                  _t ->
+                      cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).matches())
+              .findFirst()
+              .orElse(null);
+
+      // If not found, finding the FIRST repo with the containing name of the version
+      if (tag == null)
+        tag =
+            tags.stream()
+                .filter(
+                    _t ->
+                        cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find())
+                .findFirst()
+                .orElse(null);
+
+      if (tag != null && tag.getName().contains("cli")) tag = null;
+    }
+    return tag;
+  }
+
+  private void copyContent(
+      @NonNull File baseDir, @NonNull WordpressType type, @NonNull String product, String version)
+      throws IOException {
+
+    FileUtils.copyDirectory(new File(WORDPRESS_DIR), baseDir);
+
+    // Copy the env file and append the plugin or theme name
+    var env = new File(baseDir, ".env");
+    var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
+
+    //  Read Docker-compose
+    final var yamlFactory =
+        new YAMLFactory()
+            .configure(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR, true)
+            .configure(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS, true)
+            .configure(YAMLGenerator.Feature.MINIMIZE_QUOTES, true)
+            .configure(YAMLGenerator.Feature.INDENT_ARRAYS, true)
+            .configure(YAMLGenerator.Feature.WRITE_DOC_START_MARKER, false);
+
+    ObjectMapper om = new ObjectMapper(yamlFactory);
+    final var dockerCompose =
+        om.readValue(new File(baseDir, "docker-compose.yml"), DockerCompose.class);
+
+    switch (type) {
+      case CORE:
+        contentEnv = contentEnv.replace("latest", version);
+        break;
+      case PLUGIN:
+        contentEnv += "\nPLUGIN_NAME=" + product;
+        dockerCompose
+            .getServices()
+            .get("wp")
+            .getVolumes()
+            .add("./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}");
+        dockerCompose
+            .getServices()
+            .get("wpcli")
+            .getVolumes()
+            .add("./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}");
+        break;
+      case THEME:
+        contentEnv += "\nTHEME_NAME=" + product;
+        dockerCompose
+            .getServices()
+            .get("wp")
+            .getVolumes()
+            .add("./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}");
+        dockerCompose
+            .getServices()
+            .get("wpcli")
+            .getVolumes()
+            .add("./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}");
+        break;
+    }
+
+    write(env, contentEnv, StandardCharsets.UTF_8);
+    om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
+  }
+
+  public void setupConfiguration(File exploitDir, WordpressType type, String product)
+      throws ConfigurationException {
+    boolean setupCompleted = false;
+    try {
+      var res = executeProgram(exploitDir, "sh", "start.sh");
+      if (!res.equals("ok")) throw new ConfigurationException("Impossible to start docker: " + res);
+
+      final long start = System.currentTimeMillis();
+      final var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+      final var request = HttpRequest.newBuilder(new URI(ENDPOINT_TO_TEST)).GET().build();
+
+      // I try to setup wordpress in a maximum time
+      setupCompleted = false;
+      while ((System.currentTimeMillis() - start) <= MAX_TIME_TEST && !setupCompleted) {
+        try {
+          var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+          if (response.statusCode() == 200) {
+            res = executeProgram(exploitDir, "sh", "setup.sh", type.name().toLowerCase(), product);
+
+            if (res.equals("ok")) setupCompleted = true;
+            else throw new ConfigurationException("Impossible to setup docker: " + res);
+          }
+        } catch (IOException ignore) {
+          // Sleep for 2 seconds and than retry
+          TimeUnit.SECONDS.sleep(2);
+        }
+      }
+
+      // If time used to test exceeded MAX value means there might be some problem
+      if (!setupCompleted)
+        throw new ConfigurationException(
+            "Exceeded the maximum time to test. Maybe te configuration is not correct");
+
+    } catch (IOException | InterruptedException | URISyntaxException e) {
+      e.printStackTrace();
+      throw new ConfigurationException("Impossible to test configuration: " + e.getMessage());
+    } finally {
+      try {
+        // If setup has been completed stock the container, otherwise remove it
+        if (setupCompleted) executeProgram(exploitDir, "docker-compose", "stop");
+        else executeProgram(exploitDir, "docker-compose", "rm", "-f");
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
+  private SVNClientManager getSVNClientManager() throws SVNException {
     ISVNOptions myOptions = SVNWCUtil.createDefaultOptions(true);
     ISVNAuthenticationManager myAuthManager = SVNWCUtil.createDefaultAuthenticationManager();
     return SVNClientManager.newInstance(myOptions, myAuthManager);

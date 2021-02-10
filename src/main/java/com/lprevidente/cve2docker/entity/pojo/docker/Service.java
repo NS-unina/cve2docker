@@ -15,6 +15,7 @@ import java.util.Map;
 public class Service {
   String image;
   String user;
+  Map<String, String> build;
   String restart;
   List<String> ports;
   List<String> volumes;
