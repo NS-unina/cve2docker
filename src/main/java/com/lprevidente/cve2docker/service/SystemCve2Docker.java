@@ -6,13 +6,14 @@ import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.entity.vo.nist.SearchCpeVO;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import lombok.NonNull;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.naming.ConfigurationException;
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
@@ -30,8 +31,8 @@ public class SystemCve2Docker {
 
   @Autowired private JoomlaService joomlaService;
 
-  @SneakyThrows
-  public void genConfigurationFromExploit(@NonNull String edbID) {
+  public void genConfigurationFromExploit(@NonNull String edbID)
+      throws ExploitUnsupported, IOException, ConfigurationException {
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(Long.parseLong(edbID));
@@ -51,18 +52,16 @@ public class SystemCve2Docker {
       joomlaService.genConfiguration(exploitDB);
   }
 
-  @SneakyThrows
-  public SearchCpeVO getCpes(CPE cpe) {
+  public SearchCpeVO getCpes(CPE cpe) throws IOException {
     return nistService.getCpes(cpe);
   }
 
-  @SneakyThrows
-  public List<SearchTagVO.TagVO> searchTags(String repoFullName, String text) {
+  public List<SearchTagVO.TagVO> searchTags(String repoFullName, String text)
+      throws IllegalArgumentException {
     return dockerHubService.searchTags(repoFullName, text);
   }
 
-  @SneakyThrows
-  public void downloadVulnApp(String filenameVulnApp, File destDir) {
+  public void downloadVulnApp(String filenameVulnApp, File destDir) throws IOException {
     exploitDBService.downloadVulnApp(filenameVulnApp, destDir);
   }
 }

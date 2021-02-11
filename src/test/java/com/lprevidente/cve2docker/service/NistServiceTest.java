@@ -1,6 +1,6 @@
 package com.lprevidente.cve2docker.service;
 
-import com.lprevidente.cve2docker.Cve2dockerApplication;
+import com.lprevidente.cve2docker.Cve2DockerApplication;
 import com.lprevidente.cve2docker.entity.pojo.CPE;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
-    classes = Cve2dockerApplication.class)
+    classes = Cve2DockerApplication.class)
 public class NistServiceTest {
 
   @Autowired
@@ -22,7 +22,7 @@ public class NistServiceTest {
   @Test
   public void getExistingCVE() {
     assertDoesNotThrow(() -> {
-      final var vulnerability = service.getVulnerability("cve-2020-1938");
+      final var vulnerability = service.getVulnerability("2020-1938");
       assertNotNull(vulnerability);
       assertFalse(vulnerability.getCve().getReferences().getReference_data().isEmpty());
       assertNull(vulnerability
@@ -49,7 +49,7 @@ public class NistServiceTest {
   @Test
   public void getNotExistingCVE() {
     assertDoesNotThrow(() -> {
-      final var vulnerability = service.getVulnerability("cve-2018-200001");
+      final var vulnerability = service.getVulnerability("2018-200001");
       assertNull(vulnerability);
     });
   }

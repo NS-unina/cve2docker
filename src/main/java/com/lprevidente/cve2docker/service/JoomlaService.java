@@ -32,8 +32,8 @@ public class JoomlaService {
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
 
-  @Value("${spring.config.joomla.base-dir}")
-  private String JOOMLA_DIR;
+  @Value("${spring.config.joomla.config-dir}")
+  private String CONFIG_DIR;
 
   @Value("${spring.config.joomla.endpoint-to-test}")
   private String ENDPOINT_TO_TEST;
@@ -80,7 +80,7 @@ public class JoomlaService {
 
   public void copyContent(@NonNull File baseDir, @NonNull String product) throws IOException {
 
-    FileUtils.copyDirectory(new File(JOOMLA_DIR), baseDir);
+    FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
     // Copy the env file and append the plugin or theme name
     var env = new File(baseDir, ".env");
     var contentEnv = readFileToString(env, StandardCharsets.UTF_8);

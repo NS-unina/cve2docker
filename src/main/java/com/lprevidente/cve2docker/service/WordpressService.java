@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -41,11 +42,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static com.lprevidente.cve2docker.utility.Utils.*;
-import static com.lprevidente.cve2docker.utility.Utils.executeProgram;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
-import static org.apache.commons.lang3.StringUtils.isBlank;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 
 @Service
 @Slf4j
@@ -54,8 +53,8 @@ public class WordpressService {
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
 
-  @Value("${spring.config.wordpress.base-dir}")
-  private String WORDPRESS_DIR;
+  @Value("${spring.config.wordpress.config-dir}")
+  private String CONFIG_DIR;
 
   @Value("${spring.config.wordpress.endpoint-to-test}")
   private String ENDPOINT_TO_TEST;
@@ -69,7 +68,7 @@ public class WordpressService {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
-  private static final Pattern PATTERN_VERSION_EXPLOITDB =
+  private static final Pattern PATTERN_VERSION =
       Pattern.compile(
           "(<(?:\\s))?(\\d(?:[.][\\d+|x]+)(?:[.][\\d|x]+)?)(\\/)?(\\d(?:[.][\\d|x]+)?(?:[.][\\d|x])?)?",
           Pattern.CASE_INSENSITIVE);
@@ -96,25 +95,20 @@ public class WordpressService {
     var target = matcherWordpress.group(2).trim();
 
     // Extract the version from title
-    final var matcher = PATTERN_VERSION_EXPLOITDB.matcher(target);
+    final var matcher = PATTERN_VERSION.matcher(target);
     if (!matcher.find()) throw new ExploitUnsupported("Pattern version unknown: " + target);
 
-    // Remove the version
     String product = null;
-    if (StringUtils.isNotBlank(exploit.getSoftwareLink())) {
+    if (isNotBlank(exploit.getSoftwareLink())) {
       var targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getSoftwareLink());
       if (targetMatcher.find()) product = targetMatcher.group(1);
-      else if (StringUtils.isNotBlank(exploit.getProductLink())) {
+      else if (isNotBlank(exploit.getProductLink())) {
         targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getProductLink());
         if (targetMatcher.find()) product = targetMatcher.group(1);
       }
     }
+    // Remove the version
     if (product == null) product = formatString(target.replace(matcher.group(), ""));
-
-    final var less = matcher.group(1);
-    final var firstVersion = matcher.group(2);
-    final var slash = matcher.group(3);
-    final var secondVersion = matcher.group(4);
 
     String versionWordpress = null;
 
@@ -122,8 +116,16 @@ public class WordpressService {
     if (!exploitDir.exists() && !exploitDir.mkdirs())
       throw new IOException("Impossible to create folder: " + exploitDir.getPath());
 
+    // Extract the main version
+    final var firstVersion = matcher.group(2);
+
     if (type == WordpressType.CORE) {
+      // Extract the different type of version
+      final var less = matcher.group(1);
+      final var slash = matcher.group(3);
+      final var secondVersion = matcher.group(4);
       SearchTagVO.TagVO tag;
+
       try {
         if (isBlank(less) && isNotBlank(firstVersion) && isBlank(slash))
           tag = findTag(Version.parse(firstVersion));
@@ -150,6 +152,7 @@ public class WordpressService {
     } else {
       var isCheckout = false;
       File typeDir;
+
       switch (type) {
         case PLUGIN:
           typeDir = new File(exploitDir, "/plugins/" + product);
@@ -169,17 +172,51 @@ public class WordpressService {
           throw new IllegalStateException("Unexpected value: " + type);
       }
 
-      // If checkout has failed and exploit has a vuln app, download and extract it
-      if (!isCheckout && exploit.getFilenameVulnApp() != null) {
-        log.info("Exploit has vuln App. Downloading and extracting it");
-        final var zipFile = new File(exploitDir, exploit.getFilenameVulnApp());
-        systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
-        extractZip(zipFile, typeDir);
-        var files = typeDir.listFiles();
-        if (files != null && files.length == 1 && files[0].isDirectory())
-          product += "/" + files[0].getName();
-      } else if (!isCheckout)
-        throw new ExploitUnsupported(type + " not found in SVN and no Vulnerable App exist");
+      // if checkout is failed try with software link if exist
+      if (!isCheckout) {
+        var downloaded = false;
+        File zipFile = null;
+
+        // Try to download the zip file from software link
+        if (isNotBlank(exploit.getSoftwareLink())
+            && contains(exploit.getSoftwareLink(), product)
+            && contains(exploit.getSoftwareLink(), firstVersion)) {
+
+          log.debug("Trying to download it from Software link...");
+          zipFile = new File(exploitDir, product + ".zip");
+          try {
+            FileUtils.copyURLToFile(new URL(exploit.getSoftwareLink()), zipFile);
+            log.debug("Download completed");
+            downloaded = true;
+          } catch (IOException e) {
+            log.warn("Error during downloading from software link");
+          }
+        }
+
+        // Try to download the vulnerable app if there is
+        if (!downloaded && StringUtils.isNotBlank(exploit.getFilenameVulnApp())) {
+          zipFile = new File(exploitDir, exploit.getFilenameVulnApp());
+          try {
+            log.debug("Trying to download it from Exploit-DB");
+            systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
+            log.debug("Download completed");
+            downloaded = true;
+          } catch (IOException e) {
+            log.warn("Error during downloading from Exploit-DB");
+          }
+        }
+
+        if (downloaded) {
+          extractZip(zipFile, typeDir);
+          var files = typeDir.listFiles();
+          if (files != null && files.length == 1 && files[0].isDirectory()) {
+            FileUtils.copyDirectory(files[0], typeDir);
+            FileUtils.deleteDirectory(files[0]);
+          }
+        } else {
+          throw new ExploitUnsupported(type + " not found in SVN and no Vulnerable App exist");
+        }
+      }
     }
 
     // Copy the config files
@@ -236,7 +273,7 @@ public class WordpressService {
       @NonNull File baseDir, @NonNull WordpressType type, @NonNull String product, String version)
       throws IOException {
 
-    FileUtils.copyDirectory(new File(WORDPRESS_DIR), baseDir);
+    FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
 
     // Copy the env file and append the plugin or theme name
     var env = new File(baseDir, ".env");
@@ -356,6 +393,7 @@ public class WordpressService {
           SVNRevision.HEAD,
           SVNDepth.INFINITY,
           true);
+      log.debug("[checkoutPlugin] Checkout completed");
       return true;
     } catch (SVNException e) {
       log.warn("[checkoutPlugin] Unable to checkout: " + e.getMessage());
@@ -375,6 +413,7 @@ public class WordpressService {
           SVNRevision.HEAD,
           SVNDepth.INFINITY,
           true);
+      log.debug("[checkoutPlugin] Checkout completed");
       return true;
     } catch (SVNException e) {
       log.warn("[checkoutTheme] Unable to checkout: " + e.getMessage());

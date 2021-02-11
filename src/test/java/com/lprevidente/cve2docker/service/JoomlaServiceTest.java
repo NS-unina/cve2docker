@@ -24,7 +24,7 @@ public class JoomlaServiceTest extends TestBase {
 
   /** Exploit Joomla <i>Component</i> JS Job with VulnApp. */
   @Test
-  public void genConfigurationFromExploitJoomlaComponentJsJob() throws IOException {
+  public void genConfigurationComponentJsJob() throws IOException {
     final var edbID = "47232";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
@@ -38,7 +38,7 @@ public class JoomlaServiceTest extends TestBase {
 
   /** Exploit Joomla <i>Component</i> Easy Shop with VulnApp. */
   @Test
-  public void genConfigurationFromExploitJoomlaComponentEasyShop() throws IOException {
+  public void genConfigurationComponentEasyShop() throws IOException {
     final var edbID = "46219";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
@@ -54,7 +54,7 @@ public class JoomlaServiceTest extends TestBase {
 
   /** Exploit Joomla <i>Component</i> Proclaim with VulnApp. */
   @Test
-  public void genConfigurationFromExploitJoomlaComponentProclaim() throws IOException {
+  public void genConfigurationComponentProclaim() throws IOException {
     final var edbID = "44164";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
@@ -69,7 +69,7 @@ public class JoomlaServiceTest extends TestBase {
 
   /** Exploit Joomla <i>Component</i> Google Map Landkarten with VulnApp. */
   @Test
-  public void genConfigurationFromExploitJoomlaComponentGoogleMapLandkarten() throws IOException {
+  public void genConfigurationComponentGoogleMapLandkarten() throws IOException {
     final var edbID = "44113";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
@@ -84,7 +84,7 @@ public class JoomlaServiceTest extends TestBase {
 
   /** Exploit Joomla <i>Component</i> no VulnApp. */
   @Test
-  public void genConfigurationFromExploitJoomlaNoVulnApp() throws IOException {
+  public void genConfigurationNoVulnApp() throws IOException {
     final var edbID = "48202";
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);

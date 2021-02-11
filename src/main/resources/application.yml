@@ -1,7 +1,6 @@
 spring:
   config:
     exploits-dir: ./content/generated
-    php-webapp-dir: ./content/php-webapp
     dockerhub:
       base-url: https://hub.docker.com
       max-page-size: 100
@@ -16,12 +15,15 @@ spring:
       plugin-svn: https://plugins.svn.wordpress.org
       theme-svn: https://themes.svn.wordpress.org
       max-time-test: 2 # min
-      base-dir: ./content/wordpress
+      config-dir: ./content/wordpress
       endpoint-to-test: http://localhost/wp-admin/install.php
     joomla:
       max-time-test: 2 # min
-      base-dir: ./content/joomla
+      config-dir: ./content/joomla
       endpoint-to-test: http://localhost/installation/index.php
+    php-webapp:
+      config-dir: ./content/php-webapp
+
 
 logging:
   level:
