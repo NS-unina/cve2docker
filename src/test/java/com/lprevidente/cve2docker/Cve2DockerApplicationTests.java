@@ -8,9 +8,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class Cve2DockerApplicationTests {
 
-  @Autowired
-  WordpressServiceTest serviceTest;
-
   @Test
   void contextLoads() {
 

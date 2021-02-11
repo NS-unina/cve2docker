@@ -19,16 +19,17 @@ public class Cve2DockerApplication implements CommandLineRunner {
   @Autowired private SystemCve2Docker system;
 
   @Override
-  @SneakyThrows
   public void run(String... args) {
     if (args.length == 0) log.warn("No Input Provided");
-
     if (args.length >= 1) {
       if (args[0].equals("-edbID")) {
         if (args.length == 1) log.warn("No edbID provided");
         for (int i = 1; i < args.length; i++) {
-          log.debug("args: {}", i);
-          system.genConfigurationFromExploit(args[i]);
+          try {
+            system.genConfigurationFromExploit(args[i]);
+          } catch (Exception e) {
+            log.error("Error: {}", e.getMessage());
+          }
         }
       } else log.warn("No such command: {}", args[0]);
     }

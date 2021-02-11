@@ -10,6 +10,7 @@ import com.lprevidente.cve2docker.entity.pojo.WordpressType;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -28,20 +29,15 @@ import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
-import javax.naming.ConfigurationException;
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static com.lprevidente.cve2docker.utility.Utils.*;
+import static com.lprevidente.cve2docker.utility.Utils.extractZip;
+import static com.lprevidente.cve2docker.utility.Utils.formatString;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.*;
@@ -224,7 +220,16 @@ public class WordpressService {
     log.info("Configuration created. Trying to configure it");
 
     // Activate any plugin/theme and test the configuration
-    setupConfiguration(exploitDir, type, product);
+    ConfigurationUtils.setupConfiguration(
+        exploitDir,
+        ENDPOINT_TO_TEST,
+        MAX_TIME_TEST,
+        "sh",
+        "setup.sh",
+        type.name().toLowerCase(),
+        product);
+
+    // setupConfiguration(exploitDir, type, product);
     log.info("Container configured correctly!");
   }
 
@@ -326,52 +331,6 @@ public class WordpressService {
 
     write(env, contentEnv, StandardCharsets.UTF_8);
     om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
-  }
-
-  public void setupConfiguration(File exploitDir, WordpressType type, String product)
-      throws ConfigurationException {
-    boolean setupCompleted = false;
-    try {
-      var res = executeProgram(exploitDir, "sh", "start.sh");
-      if (!res.equals("ok")) throw new ConfigurationException("Impossible to start docker: " + res);
-
-      final long start = System.currentTimeMillis();
-      final var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
-      final var request = HttpRequest.newBuilder(new URI(ENDPOINT_TO_TEST)).GET().build();
-
-      // I try to setup wordpress in a maximum time
-      setupCompleted = false;
-      while ((System.currentTimeMillis() - start) <= MAX_TIME_TEST && !setupCompleted) {
-        try {
-          var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-          if (response.statusCode() == 200) {
-            res = executeProgram(exploitDir, "sh", "setup.sh", type.name().toLowerCase(), product);
-
-            if (res.equals("ok")) setupCompleted = true;
-            else throw new ConfigurationException("Impossible to setup docker: " + res);
-          }
-        } catch (IOException ignore) {
-          // Sleep for 2 seconds and than retry
-          TimeUnit.SECONDS.sleep(2);
-        }
-      }
-
-      // If time used to test exceeded MAX value means there might be some problem
-      if (!setupCompleted)
-        throw new ConfigurationException(
-            "Exceeded the maximum time to test. Maybe te configuration is not correct");
-
-    } catch (IOException | InterruptedException | URISyntaxException e) {
-      e.printStackTrace();
-      throw new ConfigurationException("Impossible to test configuration: " + e.getMessage());
-    } finally {
-      try {
-        // If setup has been completed stock the container, otherwise remove it
-        if (setupCompleted) executeProgram(exploitDir, "docker-compose", "stop");
-        else executeProgram(exploitDir, "docker-compose", "rm", "-f");
-      } catch (Exception ignored) {
-      }
-    }
   }
 
   private SVNClientManager getSVNClientManager() throws SVNException {
