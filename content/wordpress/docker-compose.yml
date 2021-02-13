@@ -28,9 +28,6 @@ services:
       - db:db
   db:
     image: mysql:5.7
-    restart: always
-    ports:
-      - 3306:3306
     environment:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}

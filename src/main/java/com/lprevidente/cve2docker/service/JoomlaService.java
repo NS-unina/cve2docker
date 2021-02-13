@@ -44,7 +44,7 @@ public class JoomlaService {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
-  public void genConfiguration(@NonNull ExploitDB exploit)
+  public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
       throws ExploitUnsupported, IOException, ConfigurationException {
     log.info("Generating configuration for Joomla Exploit");
     final var matcherJoomla = PATTERN_JOOMLA.matcher(exploit.getTitle());
@@ -52,14 +52,14 @@ public class JoomlaService {
     if (!matcherJoomla.find())
       throw new ExploitUnsupported("Pattern title unknown: " + exploit.getTitle());
 
-    // Extract from title the Type and Target (aka Product)s
-    final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-
-    if (!exploitDir.exists() && !exploitDir.mkdirs())
-      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
-
     if (exploit.getFilenameVulnApp() != null) {
-      log.info("Exploit has Vuln App. Downloading it");
+      // Creating the directoty
+      final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
+
+      if (!exploitDir.exists() && !exploitDir.mkdirs())
+        throw new IOException("Impossible to create folder: " + exploitDir.getPath());
+
+      log.info("Exploit has Vulnerable App. Downloading it");
       final var zipFile = new File(exploitDir, "/component/" + exploit.getFilenameVulnApp());
       systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
 
@@ -72,12 +72,16 @@ public class JoomlaService {
           exploitDir,
           ENDPOINT_TO_TEST,
           MAX_TIME_TEST,
+          removeConfig,
           "sh",
           "setup.sh",
           exploit.getFilenameVulnApp());
 
       log.info("Container configured correctly!");
-    } else throw new ExploitUnsupported("No Vulnerable App available. Cannot complete!");
+    } else {
+      // log.warn("No Vulnerable App available. Cannot complete!");
+      throw new ExploitUnsupported("No Vulnerable App available. Cannot complete!");
+    }
   }
 
   public void copyContent(@NonNull File baseDir, @NonNull String product) throws IOException {

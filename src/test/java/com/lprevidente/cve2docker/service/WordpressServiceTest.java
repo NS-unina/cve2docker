@@ -26,7 +26,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
   }
 
   /**
@@ -38,7 +38,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
@@ -54,7 +54,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
@@ -71,7 +71,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
@@ -88,7 +88,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertThrows(ExploitUnsupported.class, () -> service.genConfigurationFromExploit(edbID));
+    assertThrows(ExploitUnsupported.class, () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
   }
 
   /**
@@ -102,7 +102,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=contact-form-by-supsystic"));
@@ -118,7 +118,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
@@ -135,7 +135,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
@@ -149,7 +149,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
@@ -163,7 +163,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);

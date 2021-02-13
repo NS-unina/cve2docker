@@ -1,5 +1,6 @@
 spring:
   config:
+    exploits-url-github: https://raw.githubusercontent.com/offensive-security/exploitdb/master/files_exploits.csv
     exploits-dir: ./content/generated
     dockerhub:
       base-url: https://hub.docker.com
@@ -28,3 +29,4 @@ spring:
 logging:
   level:
     com.lprevidente.cve2docker.service: debug
+    com.lprevidente.cve2docker.utility: debug

@@ -79,7 +79,7 @@ public class WordpressService {
           Pattern.CASE_INSENSITIVE);
 
   @SneakyThrows
-  public void genConfiguration(@NonNull ExploitDB exploit) {
+  public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig) {
     log.info("Generating configuration for Wordpress Exploit");
     final var matcherWordpress = PATTERN_WORDPRESS.matcher(exploit.getTitle());
 
@@ -224,6 +224,7 @@ public class WordpressService {
         exploitDir,
         ENDPOINT_TO_TEST,
         MAX_TIME_TEST,
+        removeConfig,
         "sh",
         "setup.sh",
         type.name().toLowerCase(),

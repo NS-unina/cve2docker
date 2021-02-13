@@ -1,5 +1,8 @@
 package com.lprevidente.cve2docker.utility;
 
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+
 import javax.naming.ConfigurationException;
 import java.io.File;
 import java.io.IOException;
@@ -12,10 +15,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.lprevidente.cve2docker.utility.Utils.executeProgram;
 
+@Slf4j
 public class ConfigurationUtils {
 
   public static void setupConfiguration(
-      File exploitDir, String endpoint, Long timeout, String... cmdSetup)
+      @NonNull File exploitDir, @NonNull String endpoint, @NonNull Long timeout, boolean removeConfig, String... cmdSetup)
       throws ConfigurationException {
     boolean setupCompleted = false;
     try {
@@ -36,6 +40,8 @@ public class ConfigurationUtils {
 
             if (res.equals("ok")) setupCompleted = true;
             else throw new ConfigurationException("Impossible to setup docker: " + res);
+          } else{
+            TimeUnit.SECONDS.sleep(2);
           }
         } catch (IOException ignore) {
           // Sleep for 2 seconds and than retry
@@ -54,8 +60,10 @@ public class ConfigurationUtils {
     } finally {
       try {
         // If setup has been completed stock the container, otherwise remove it
-        if (setupCompleted) executeProgram(exploitDir, "docker-compose", "stop");
-        else executeProgram(exploitDir, "docker-compose", "rm", "-f");
+        log.debug("Stopping container..");
+        executeProgram(exploitDir, "docker-compose", "stop");
+        if (!setupCompleted || removeConfig)
+         executeProgram(exploitDir, "docker-compose", "rm", "-v", "-f");
       } catch (Exception ignored) {
       }
     }
