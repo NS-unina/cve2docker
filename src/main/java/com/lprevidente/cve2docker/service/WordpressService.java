@@ -92,7 +92,7 @@ public class WordpressService {
 
     // Extract the version from title
     final var matcher = PATTERN_VERSION.matcher(target);
-    if (!matcher.find()) throw new ExploitUnsupported("Pattern version unknown: " + target);
+    if (!matcher.find()) throw new ExploitUnsupported("Version not present or pattern unkown: " + target);
 
     String product = null;
     if (isNotBlank(exploit.getSoftwareLink())) {
@@ -286,13 +286,7 @@ public class WordpressService {
     var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
 
     //  Read Docker-compose
-    final var yamlFactory =
-        new YAMLFactory()
-            .configure(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR, true)
-            .configure(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS, true)
-            .configure(YAMLGenerator.Feature.MINIMIZE_QUOTES, true)
-            .configure(YAMLGenerator.Feature.INDENT_ARRAYS, true)
-            .configure(YAMLGenerator.Feature.WRITE_DOC_START_MARKER, false);
+    final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
 
     ObjectMapper om = new ObjectMapper(yamlFactory);
     final var dockerCompose =

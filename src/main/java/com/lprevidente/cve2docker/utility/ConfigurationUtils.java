@@ -1,5 +1,7 @@
 package com.lprevidente.cve2docker.utility;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,7 +21,11 @@ import static com.lprevidente.cve2docker.utility.Utils.executeProgram;
 public class ConfigurationUtils {
 
   public static void setupConfiguration(
-      @NonNull File exploitDir, @NonNull String endpoint, @NonNull Long timeout, boolean removeConfig, String... cmdSetup)
+      @NonNull File exploitDir,
+      @NonNull String endpoint,
+      @NonNull Long timeout,
+      boolean removeConfig,
+      String... cmdSetup)
       throws ConfigurationException {
     boolean setupCompleted = false;
     try {
@@ -40,7 +46,7 @@ public class ConfigurationUtils {
 
             if (res.equals("ok")) setupCompleted = true;
             else throw new ConfigurationException("Impossible to setup docker: " + res);
-          } else{
+          } else {
             TimeUnit.SECONDS.sleep(2);
           }
         } catch (IOException ignore) {
@@ -63,9 +69,18 @@ public class ConfigurationUtils {
         log.debug("Stopping container..");
         executeProgram(exploitDir, "docker-compose", "stop");
         if (!setupCompleted || removeConfig)
-         executeProgram(exploitDir, "docker-compose", "rm", "-v", "-f");
+          executeProgram(exploitDir, "docker-compose", "rm", "-v", "-f");
       } catch (Exception ignored) {
       }
     }
+  }
+
+  public static YAMLFactory getYAMLFactoryDockerCompose() {
+    return new YAMLFactory()
+        .configure(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR, true)
+        .configure(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS, true)
+        .configure(YAMLGenerator.Feature.MINIMIZE_QUOTES, true)
+        .configure(YAMLGenerator.Feature.INDENT_ARRAYS, true)
+        .configure(YAMLGenerator.Feature.WRITE_DOC_START_MARKER, false);
   }
 }

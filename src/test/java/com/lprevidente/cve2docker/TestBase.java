@@ -7,7 +7,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
-    classes = Cve2DockerApplication.class)
+    classes = Cve2DockerApplication.class,
+    properties = "command.line.runner.enabled=false")
 public class TestBase {
 
 }

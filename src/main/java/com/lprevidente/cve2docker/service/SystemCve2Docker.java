@@ -57,9 +57,6 @@ public class SystemCve2Docker {
 
     log.info("Exploit Found in ExploitDB");
 
-    if (!(exploitDB.getType().equalsIgnoreCase("WEBAPPS")))
-      throw new ExploitUnsupported("Platform not supported");
-
     if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name()))
       wordpressService.genConfiguration(exploitDB, removeConfig);
     else if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name()))
