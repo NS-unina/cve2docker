@@ -5,6 +5,7 @@ import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
 import com.lprevidente.cve2docker.entity.pojo.ExploitType;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.entity.vo.nist.SearchCpeVO;
+import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
@@ -17,7 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.naming.ConfigurationException;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -42,6 +42,8 @@ public class SystemCve2Docker {
 
   @Autowired private JoomlaService joomlaService;
 
+  @Autowired private PhpWebAppService phpWebAppService;
+
   @Value("${spring.config.exploits-url-github}")
   private String EXPLOITS_URL_GITHUB;
 
@@ -61,6 +63,8 @@ public class SystemCve2Docker {
       wordpressService.genConfiguration(exploitDB, removeConfig);
     else if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name()))
       joomlaService.genConfiguration(exploitDB, removeConfig);
+    else if(StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), "PHP"))
+      phpWebAppService.genConfiguration(exploitDB, removeConfig);
   }
 
   public void genConfigurations(

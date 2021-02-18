@@ -33,4 +33,5 @@ build/
 .vscode/
 /content/generated
 
-
+# Ignore result ouput
+result.csv

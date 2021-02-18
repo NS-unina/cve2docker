@@ -2,10 +2,10 @@ package com.lprevidente.cve2docker.utility;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import com.lprevidente.cve2docker.exception.ConfigurationException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.naming.ConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -13,6 +13,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static com.lprevidente.cve2docker.utility.Utils.executeProgram;
@@ -42,7 +43,10 @@ public class ConfigurationUtils {
         try {
           var response = client.send(request, HttpResponse.BodyHandlers.ofString());
           if (response.statusCode() == 200) {
-            res = executeProgram(exploitDir, cmdSetup);
+            if (Objects.nonNull(cmdSetup))
+              res = executeProgram(exploitDir, cmdSetup);
+            else
+              res = "ok";
 
             if (res.equals("ok")) setupCompleted = true;
             else throw new ConfigurationException("Impossible to setup docker: " + res);

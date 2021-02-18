@@ -1,6 +1,7 @@
 package com.lprevidente.cve2docker.service;
 
 import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
+import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
@@ -10,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.naming.ConfigurationException;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
