@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +23,8 @@ import static org.apache.commons.io.FileUtils.write;
 @Slf4j
 @Service
 public class JoomlaService {
+
+  @Autowired private SystemCve2Docker systemCve2Docker;
 
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
@@ -39,12 +40,23 @@ public class JoomlaService {
 
   private final Long MAX_TIME_TEST;
 
-  @Autowired private SystemCve2Docker systemCve2Docker;
-
   public JoomlaService(@Value("${spring.config.joomla.max-time-test}") Integer MAX_TIME_TEST) {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
+  /**
+   * Method to generate configuration for the exploit related to <b>Joomla</b>. The configuration
+   * consist in docker-compose, env file e other files depending on the exploit type.
+   *
+   * <p>The configuration is saved in ./content/generated/{edbID} folder.
+   *
+   * @param exploit not null
+   * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @throws ExploitUnsupported throws when there is no possibility to generate the configuration.
+   * @throws IOException throw when there is a problem with I/O operation
+   * @throws ConfigurationException throws when there is a problem during the setup or test of the
+   *     configuration.
+   */
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
       throws ExploitUnsupported, IOException, ConfigurationException {
     log.info("Generating configuration for Joomla Exploit");
@@ -85,14 +97,25 @@ public class JoomlaService {
     }
   }
 
-  public void copyContent(@NonNull File baseDir, @NonNull String product) throws IOException {
+  /**
+   * Copy the content from the configuration directory into the directory provided. Also modifies
+   * the env file inserting the name of Joomla component.
+   *
+   * @param baseDir the directory in which the files should be copied. component the name of Joomla
+   *     component.
+   * @param component the name of joomla component
+   * @throws IOException if the file provided is not a directory or an error during the copy
+   *     process.
+   */
+  private void copyContent(@NonNull File baseDir, @NonNull String component) throws IOException {
+    if (!baseDir.isDirectory()) throw new IOException("The baseDir provided is not a directory");
 
     FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
-    // Copy the env file and append the plugin or theme name
+    // Copy the env file and append the component name
     var env = new File(baseDir, ".env");
     var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
 
-    contentEnv += "\nCOMPONENT_NAME=" + product;
+    contentEnv += "\nCOMPONENT_NAME=" + component;
 
     write(env, contentEnv, StandardCharsets.UTF_8);
   }

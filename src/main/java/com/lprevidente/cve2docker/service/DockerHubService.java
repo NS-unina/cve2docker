@@ -1,7 +1,10 @@
 package com.lprevidente.cve2docker.service;
 
 import com.lprevidente.cve2docker.api.DockerHubAPI;
-import com.lprevidente.cve2docker.entity.vo.dockerhub.*;
+import com.lprevidente.cve2docker.entity.vo.dockerhub.RepoVO;
+import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchRepoVO;
+import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
+import com.lprevidente.cve2docker.entity.vo.dockerhub.SourceRepositoryVO;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -15,7 +18,6 @@ import retrofit2.converter.jackson.JacksonConverterFactory;
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -47,30 +49,6 @@ public class DockerHubService {
             .addConverterFactory(JacksonConverterFactory.create())
             .build();
     dockerHubAPI = retrofit.create(DockerHubAPI.class);
-  }
-
-  /**
-   * Return the most popular repo for the text provided. The popularity is based on star and pull
-   * count.
-   *
-   * @param text what to search
-   * @return <b>null</b> if the repo doesn't exist
-   * @throws IOException throw when there is a problem performing the request or the
-   *     deserialization.
-   */
-  public SearchRepoVO.ResultVO getMostPopularRepo(@NonNull String text) throws IOException {
-    SearchRepoVO searchRepoVO =
-        this.searchRepos(text, 1, MAX_PAGE_SIZE); // TODO: manage other pages?
-    if (searchRepoVO == null || searchRepoVO.getCount() == 0) return null;
-
-    if (searchRepoVO.getCount() > 1)
-      searchRepoVO
-          .getResults()
-          .sort(
-              Comparator.comparingLong(SearchRepoVO.ResultVO::getStar_count)
-                  .thenComparingLong(SearchRepoVO.ResultVO::getPull_count)
-                  .reversed());
-    return searchRepoVO.getResults().get(0);
   }
 
   /**
@@ -161,8 +139,7 @@ public class DockerHubService {
    *     are compared.
    * @return <b>empty</b> list if not the tag exist
    */
-  public List<SearchTagVO.TagVO> searchTags(
-      String owner, @NonNull String repository, String text) {
+  public List<SearchTagVO.TagVO> searchTags(String owner, @NonNull String repository, String text) {
     int page = 1;
     SearchTagVO searchRepo;
     var tags = new ArrayList<SearchTagVO.TagVO>();
@@ -294,22 +271,4 @@ public class DockerHubService {
   public String getURLDockerfile(@NonNull String owner, @NonNull String repository) {
     return dockerHubAPI.getDockerfile(owner, repository).request().url().url().toString();
   }
-
-  /**
-   * Return {@link FileVO} with the content of dockerfile associated with the repo
-   *
-   * @param owner The name owner of repository
-   * @param repository The name of repository
-   * @return <b>null</b> if the response is not Successful
-   * @throws IOException throw when there is a problem performing the request or the *
-   *     deserialization.
-   */
-  public FileVO getDockerfile(@NonNull String owner, @NonNull String repository)
-      throws IOException {
-    log.debug("[getDockerfile] Request to DockerHub - Params: repoName = {}", repository);
-    Response<FileVO> response = dockerHubAPI.getDockerfile(owner, repository).execute();
-    log.debug("[getDockerfile] Response from DockerHub {}", response.code());
-    return response.isSuccessful() ? response.body() : null;
-  }
-
 }

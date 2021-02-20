@@ -1,18 +1,16 @@
 package com.lprevidente.cve2docker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.lprevidente.cve2docker.entity.pojo.CPE;
 import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
 import com.lprevidente.cve2docker.entity.pojo.Version;
 import com.lprevidente.cve2docker.entity.pojo.WordpressType;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
+import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -55,6 +53,12 @@ public class WordpressService {
   @Value("${spring.config.wordpress.endpoint-to-test}")
   private String ENDPOINT_TO_TEST;
 
+  @Value("${spring.config.wordpress.svn-base-url.plugin}")
+  private String BASE_URL_SVN_PLUGIN;
+
+  @Value("${spring.config.wordpress.svn-base-url.theme}")
+  private String BASE_URL_SVN_THEME;
+
   private final Long MAX_TIME_TEST;
 
   @Autowired private SystemCve2Docker systemCve2Docker;
@@ -78,8 +82,21 @@ public class WordpressService {
           "wordpress.org\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
           Pattern.CASE_INSENSITIVE);
 
-  @SneakyThrows
-  public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig) {
+  /**
+   * Method to generate configuration for the exploit related to <b>Wordpress</b>. The configuration
+   * consist in docker-compose, env file e other files depending on the exploit type.
+   *
+   * <p>The configuration is saved in ./content/generated/{edbID} folder.
+   *
+   * @param exploit not null
+   * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @throws ExploitUnsupported throws when there is no possibility to generate the configuration.
+   * @throws IOException throw when there is a problem with I/O operation
+   * @throws ConfigurationException throws when there is a problem during the setup or test of the
+   *     configuration.
+   */
+  public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
+      throws ExploitUnsupported, IOException, ConfigurationException {
     log.info("Generating configuration for Wordpress Exploit");
     final var matcherWordpress = PATTERN_WORDPRESS.matcher(exploit.getTitle());
 
@@ -92,7 +109,8 @@ public class WordpressService {
 
     // Extract the version from title
     final var matcher = PATTERN_VERSION.matcher(target);
-    if (!matcher.find()) throw new ExploitUnsupported("Version not present or pattern unkown: " + target);
+    if (!matcher.find())
+      throw new ExploitUnsupported("Version not present or pattern unkown: " + target);
 
     String product = null;
     if (isNotBlank(exploit.getSoftwareLink())) {
@@ -146,27 +164,12 @@ public class WordpressService {
       else throw new ExploitUnsupported("No docker image Wordpress compatible found");
 
     } else {
-      var isCheckout = false;
       File typeDir;
 
-      switch (type) {
-        case PLUGIN:
-          typeDir = new File(exploitDir, "/plugins/" + product);
-          if (!typeDir.exists() && !typeDir.mkdirs())
-            throw new IOException("Impossible to create folder: " + typeDir.getPath());
-          isCheckout = checkoutPlugin(product, firstVersion, typeDir);
-          break;
-
-        case THEME:
-          typeDir = new File(exploitDir, "/themes/" + product);
-          if (!typeDir.exists() && !typeDir.mkdirs())
-            throw new IOException("Impossible to create folder: " + typeDir.getPath());
-          isCheckout = checkoutTheme(product, firstVersion, typeDir);
-          break;
-
-        default:
-          throw new IllegalStateException("Unexpected value: " + type);
-      }
+      typeDir = new File(exploitDir, "/" + type.name() + "s/" + product);
+      if (!typeDir.exists() && !typeDir.mkdirs())
+        throw new IOException("Impossible to create folder: " + typeDir.getPath());
+      var isCheckout = checkout(type, product, firstVersion, typeDir);
 
       // if checkout is failed try with software link if exist
       if (!isCheckout) {
@@ -234,7 +237,14 @@ public class WordpressService {
     log.info("Container configured correctly!");
   }
 
-  private SearchTagVO.TagVO findTag(Version version) throws IOException {
+  /**
+   * Find a Docker Tag that is compatibile with the specific version of wordpress provided
+   *
+   * @param version the version of wordpress
+   * @return null if no tag has been found.
+   * @throws IOException exception occurred during the request to dockerhub
+   */
+  private SearchTagVO.TagVO findTag(@NonNull Version version) throws IOException {
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
 
     // Return all CPE that match the previous
@@ -275,8 +285,21 @@ public class WordpressService {
     return tag;
   }
 
+  /**
+   * Copy the content from the configuration directory into the directory provided. Also modifies
+   * the <i>env</i> file inserting the name of plugin/theme or the version of wordpress which is
+   * related the exploit.
+   *
+   * @param baseDir the directory in which the files should be copied. component the name of Joomla
+   *     component.
+   * @param type the type of wordpress exploit
+   * @param product the name of the product, can be null.
+   * @param version the wordpress version (/tag), should be specified only if the type is CORE.
+   * @throws IOException if the file provided is not a directory or an error during the copy
+   *     process.
+   */
   private void copyContent(
-      @NonNull File baseDir, @NonNull WordpressType type, @NonNull String product, String version)
+      @NonNull File baseDir, @NonNull WordpressType type, String product, String version)
       throws IOException {
 
     FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
@@ -328,49 +351,57 @@ public class WordpressService {
     om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
   }
 
-  private SVNClientManager getSVNClientManager() throws SVNException {
+  /**
+   * Buld a SVNClient Manager with no particula authentication.
+   *
+   * @return the client manager
+   */
+  private SVNClientManager getSVNClientManager() {
     ISVNOptions myOptions = SVNWCUtil.createDefaultOptions(true);
     ISVNAuthenticationManager myAuthManager = SVNWCUtil.createDefaultAuthenticationManager();
     return SVNClientManager.newInstance(myOptions, myAuthManager);
   }
 
-  public boolean checkoutPlugin(String pluginName, String version, File destDir) {
+  /**
+   * Do the checkout for the plugin or theme of the project from Wordpress official SVN.
+   *
+   * @param type Plugin or Theme, otherwise the result is always false.
+   * @param repoName the name of the repo
+   * @param version the version
+   * @param destDir the directory in which the checkout should be done
+   * @return true if the checkout was successful, false otherwise.
+   */
+  private boolean checkout(
+      @NonNull WordpressType type,
+      @NonNull String repoName,
+      @NonNull String version,
+      @NonNull File destDir) {
     try {
-      log.debug(
-          "[checkoutPlugin] Request checkout - pluginName = {}  version = {}", pluginName, version);
-      final var updateClient = getSVNClientManager().getUpdateClient();
-      updateClient.doCheckout(
-          SVNURL.parseURIEncoded(
-              "https://plugins.svn.wordpress.org/" + pluginName + "/tags/" + version),
-          destDir,
-          SVNRevision.HEAD,
-          SVNRevision.HEAD,
-          SVNDepth.INFINITY,
-          true);
-      log.debug("[checkoutPlugin] Checkout completed");
-      return true;
-    } catch (SVNException e) {
-      log.warn("[checkoutPlugin] Unable to checkout: " + e.getMessage());
-      return false;
-    }
-  }
+      String url;
+      if (type.equals(WordpressType.PLUGIN))
+        url = BASE_URL_SVN_PLUGIN + repoName + "/tags/" + version;
+      else if (type.equals(WordpressType.THEME))
+        url = BASE_URL_SVN_THEME + repoName + "/tags/" + version;
+      else return false;
 
-  public boolean checkoutTheme(String themeName, String version, File destDir) {
-    try {
       log.debug(
-          "[checkoutTheme] Request checkout - pluginName = {}  version = {}", themeName, version);
+          "[checkout] Request checkout - type = {}  repo = {}  version = {}",
+          type.name(),
+          repoName,
+          version);
+
       final var updateClient = getSVNClientManager().getUpdateClient();
       updateClient.doCheckout(
-          SVNURL.parseURIEncoded("https://themes.svn.wordpress.org/" + themeName + "/" + version),
+          SVNURL.parseURIEncoded(url),
           destDir,
           SVNRevision.HEAD,
           SVNRevision.HEAD,
           SVNDepth.INFINITY,
           true);
-      log.debug("[checkoutPlugin] Checkout completed");
+      log.debug("[checkout] Checkout completed");
       return true;
     } catch (SVNException e) {
-      log.warn("[checkoutTheme] Unable to checkout: " + e.getMessage());
+      log.warn("[checkout] Unable to checkout: " + e.getMessage());
       return false;
     }
   }

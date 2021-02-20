@@ -11,13 +11,15 @@ spring:
       update: true
     nist:
       base-url: https://services.nvd.nist.gov/rest/json/
-      max-page-size: 100
     wordpress:
       plugin-svn: https://plugins.svn.wordpress.org
       theme-svn: https://themes.svn.wordpress.org
       max-time-test: 2 # min
       config-dir: ./content/wordpress
       endpoint-to-test: http://localhost/wp-admin/install.php
+      svn-baseurl:
+        plugin: https://plugins.svn.wordpress.org/
+        theme: https://themes.svn.wordpress.org/
     joomla:
       max-time-test: 2 # min
       config-dir: ./content/joomla

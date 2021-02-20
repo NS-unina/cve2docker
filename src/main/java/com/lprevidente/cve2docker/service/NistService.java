@@ -21,9 +21,6 @@ public class NistService {
   @Value("${spring.config.nist.base-url}")
   private String BASE_PATH;
 
-  @Value("${spring.config.dockerhub.max-page-size}")
-  private Integer MAX_PAGE_SIZE;
-
   private NistAPI nistAPI;
 
   @PostConstruct
@@ -53,6 +50,14 @@ public class NistService {
         : null;
   }
 
+  /**
+   * Return {@link SearchCpeVO} containing a list of all cpes that match the cpe provided.
+   *
+   * @param cpe not null
+   * @return <b>null</b> there is not cpe
+   * @throws IOException throw when there is a problem performing the request or the
+   *     deserialization.
+   */
   public SearchCpeVO getCpes(@NonNull CPE cpe) throws IOException {
     log.debug("[getCpes] Request to NIST cpe = {}", cpe.toCpeString());
     var response = nistAPI.getCPEs(cpe.toCpeString()).execute();

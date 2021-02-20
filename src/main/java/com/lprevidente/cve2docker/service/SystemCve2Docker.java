@@ -47,6 +47,19 @@ public class SystemCve2Docker {
   @Value("${spring.config.exploits-url-github}")
   private String EXPLOITS_URL_GITHUB;
 
+  /**
+   * Method to generate configuration for the exploit provided. The configuration consist in
+   * docker-compose, env file e other files depending on the exploit type.
+   *
+   * <p>The configuration is saved in ./content/generated/{edbID} folder.
+   *
+   * @param edbID not null
+   * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @throws ExploitUnsupported throws when there is no possibility to generate the configuration.
+   * @throws IOException throw when there is a problem with I/O operation
+   * @throws ConfigurationException throws when there is a problem during the setup or test of the
+   *     configuration.
+   */
   public void genConfigurationFromExploit(@NonNull Long edbID, boolean removeConfig)
       throws ExploitUnsupported, IOException, ConfigurationException {
     ExploitDB exploitDB = null;
@@ -63,12 +76,26 @@ public class SystemCve2Docker {
       wordpressService.genConfiguration(exploitDB, removeConfig);
     else if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name()))
       joomlaService.genConfiguration(exploitDB, removeConfig);
-    else if(StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), "PHP"))
+    else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
       phpWebAppService.genConfiguration(exploitDB, removeConfig);
   }
 
+  /**
+   * Method to generate various configurations specifying a list of exploit types. The list of
+   * exploit is taken from exploitdb GitHub <i>every time the method is executed</i> so as to have
+   * the most updated list.
+   *
+   * <p>in addition to configurations, the method saves the result of the generation process in a
+   * csv file, named result.csv.
+   *
+   * @param startDate the date <i>after</i> which the exploit has been published
+   * @param endDate the date <i>before</i> which the exploit has been published
+   * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @param types the list of all types of exploits for which a configuration must be generated
+   */
   public void genConfigurations(
       Date startDate, Date endDate, boolean removeConfig, @NonNull List<ExploitType> types) {
+
     CSVParser exploits;
     try {
       exploits =
@@ -79,7 +106,7 @@ public class SystemCve2Docker {
                   "id", "file", "description", "date", "author", "type", "platform", "port"));
 
       // Open a File write to save the results
-      FileWriter writer = new FileWriter("result.csv");
+      FileWriter writer = new FileWriter("result_" + new Date() + ".csv");
 
       var printer =
           new CSVPrinter(
@@ -100,8 +127,11 @@ public class SystemCve2Docker {
         if (!types.isEmpty() && !matchType) continue;
 
         var date = Utils.fromStringToDate(record.get("date"));
+
+        // IF startDate is set and the date of exploit is before, jump to next one
         if (Objects.nonNull(startDate) && date.before(startDate)) continue;
 
+        // IF endDate is set and the date of exploit is after, jump to next one
         if (Objects.nonNull(endDate) && date.after(endDate)) continue;
 
         try {
@@ -118,7 +148,7 @@ public class SystemCve2Docker {
               e.getMessage());
         }
         nTested++;
-        if (nTested % 10 == 0){
+        if (nTested % 10 == 0) {
           log.debug("Cleaning docker networks");
           Utils.executeShellCmd("docker network prune -f");
         }
@@ -135,15 +165,18 @@ public class SystemCve2Docker {
     }
   }
 
+  /** Wrapper of {@link NistService#getCpes(CPE)} */
   public SearchCpeVO getCpes(CPE cpe) throws IOException {
     return nistService.getCpes(cpe);
   }
 
+  /** Wrapper of {@link DockerHubService#searchTags(String, String)} */
   public List<SearchTagVO.TagVO> searchTags(String repoFullName, String text)
       throws IllegalArgumentException {
     return dockerHubService.searchTags(repoFullName, text);
   }
 
+  /** Wrapper of {@link ExploitDBService#downloadVulnApp(String, File)} */
   public void downloadVulnApp(String filenameVulnApp, File destDir) throws IOException {
     exploitDBService.downloadVulnApp(filenameVulnApp, destDir);
   }
