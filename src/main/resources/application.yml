@@ -1,0 +1,35 @@
+spring:
+  config:
+    exploits-url-github: https://raw.githubusercontent.com/offensive-security/exploitdb/master/files_exploits.csv
+    exploits-dir: ./content/generated
+    dockerhub:
+      base-url: https://hub.docker.com
+      max-page-size: 100
+    exploit-db:
+      base-url: https://www.exploit-db.com
+      max-retry-next: 10
+      update: true
+    nist:
+      base-url: https://services.nvd.nist.gov/rest/json/
+    wordpress:
+      plugin-svn: https://plugins.svn.wordpress.org
+      theme-svn: https://themes.svn.wordpress.org
+      max-time-test: 2 # min
+      config-dir: ./content/wordpress
+      endpoint-to-test: http://localhost/wp-admin/install.php
+      svn-baseurl:
+        plugin: https://plugins.svn.wordpress.org/
+        theme: https://themes.svn.wordpress.org/
+    joomla:
+      max-time-test: 2 # min
+      config-dir: ./content/joomla
+      endpoint-to-test: http://localhost/installation/index.php
+    php-webapp:
+      max-time-test: 2 # min
+      config-dir: ./content/php-webapp
+
+
+logging:
+  level:
+    com.lprevidente.cve2docker.service: debug
+    com.lprevidente.cve2docker.utility: debug

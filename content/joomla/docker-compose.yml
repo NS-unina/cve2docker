@@ -1,0 +1,35 @@
+version: '2'
+services:
+  joomla:
+    image: joomla:${JOOMLA_VERSION}
+    volumes:
+      - ./config/joomla/configuration.php:/var/www/html/configuration.php
+      - ./config/joomla/install-joomla-extension.php:/var/www/html/cli/install-joomla-extension.php
+      - ./component/${COMPONENT_NAME}:/var/www/html/work_directory/${COMPONENT_NAME}
+      - ./component/unzip:/var/www/html/tmp
+      - ./config/joomla/mysql:/var/www/html/installation/sql/mysql
+    links:
+      - db:mysql
+    ports:
+      - 80:80
+    environment:
+      JOOMLA_DB_HOST: db
+      JOOMLA_DB_USER: root
+      JOOMLA_DB_PASSWORD: "${DB_ROOT_PASSWORD}"
+      JOOMLA_DB_NAME: "${DB_NAME}"
+  db:
+    image: mysql:5.7
+    command: mysqld --sql_mode=""
+    environment:
+      MYSQL_DATABASE: "${DB_NAME}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+  pma:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+    ports:
+      - 8080:80
+    links:
+      - db:db
