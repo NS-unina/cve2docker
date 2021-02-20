@@ -22,6 +22,9 @@ public class Utils {
 
   private static final SimpleDateFormat YYYY_MM_DD = new SimpleDateFormat("yyyy-MM-dd");
 
+  private static final SimpleDateFormat YYYY_MM_DD_HH_MM_SS =
+      new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+
   /**
    * Find inside the text the 'docker run' cmd
    *
@@ -34,7 +37,17 @@ public class Utils {
     return matcher.results().map(MatchResult::group).toArray(String[]::new);
   }
 
-  public static String executeShellCmd(String cmd) throws IOException, InterruptedException {
+  /**
+   * Utility to execute the a shell command.
+   *
+   * @param cmd The entire command to execute
+   * @return The result of execution
+   * @throws IOException If an I/O error occurs
+   * @throws InterruptedException If the current thread is interrupted by another thread while it is
+   *     waiting, then the wait is ended and an InterruptedException is thrown
+   */
+  public static String executeShellCmd(@NonNull String cmd)
+      throws IOException, InterruptedException {
     Runtime runtime = Runtime.getRuntime();
     Process pr = runtime.exec(cmd);
     pr.waitFor();
@@ -42,7 +55,17 @@ public class Utils {
     return String.join("\n", reader.lines().toArray(String[]::new));
   }
 
-  public static String executeProgram(File dir, String... cmd)
+  /**
+   * Utility to execute the a shell command in a folder
+   *
+   * @param dir The folder in which the command should be execute
+   * @param cmd A string array containing the program and its arguments
+   * @return The result of execution
+   * @throws IOException If an I/O error occurs
+   * @throws InterruptedException If the current thread is interrupted by another thread while it is
+   *     waiting, then the wait is ended and an InterruptedException is thrown
+   */
+  public static String executeProgram(@NonNull File dir, @NonNull String... cmd)
       throws IOException, InterruptedException {
     ProcessBuilder builder = new ProcessBuilder(cmd);
     builder.directory(dir.getCanonicalFile());
@@ -61,16 +84,41 @@ public class Utils {
    * @throws IOException in case of error
    * @throws InterruptedException in case of error
    */
-  public static String fromDockerRun2DockerCompose(String dockeRunCmd)
+  public static String fromDockerRun2DockerCompose(@NonNull String dockeRunCmd)
       throws IOException, InterruptedException {
     return executeShellCmd("composerize " + dockeRunCmd);
   }
 
-  public static Date fromStringToDate(String date) throws ParseException {
+  /**
+   * Convert a String to date
+   *
+   * @param date must by in the format yy-MM-dd
+   * @return the object date
+   * @throws ParseException if the beginning of the specified string cannot be parsed.
+   */
+  public static Date fromStringToDate(@NonNull String date) throws ParseException {
     return YYYY_MM_DD.parse(date);
   }
 
-  public static void extractZip(File input, File output) throws IOException {
+  /**
+   * Convert a Date to String
+   *
+   * @param date must by in the format yy-MM-dd
+   * @return the string in the format yyyy-MM-dd'T'HH:mm:ss
+   */
+  public static String fromDateToString(@NonNull Date date) {
+    return YYYY_MM_DD_HH_MM_SS.format(date);
+  }
+
+  /**
+   * Extract the zip file in the output directory provided and after the extraction is completed the
+   * <b>zip file is deleted</b>.
+   *
+   * @param input the zip file
+   * @param output the directory in which the zip should be extracted.
+   * @throws IOException if an I/O error has occurred
+   */
+  public static void extractZip(@NonNull File input, @NonNull File output) throws IOException {
     try (var zipFile = new ZipFile(input)) {
       var entries = zipFile.entries();
       while (entries.hasMoreElements()) {
@@ -91,6 +139,13 @@ public class Utils {
     }
   }
 
+  /**
+   * Format the input string replacing the space with -, removing the . (dots) and convert all the
+   * characters in to lower case
+   *
+   * @param in input string
+   * @return the string formatted
+   */
   public static String formatString(@NonNull String in) {
     return in.toLowerCase().trim().replace(" ", "-").replace(".", "");
   }

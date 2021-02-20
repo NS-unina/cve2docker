@@ -34,4 +34,4 @@ build/
 /content/generated
 
 # Ignore result ouput
-result.csv
+result*.csv

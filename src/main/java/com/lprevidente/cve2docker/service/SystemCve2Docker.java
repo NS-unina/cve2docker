@@ -106,7 +106,7 @@ public class SystemCve2Docker {
                   "id", "file", "description", "date", "author", "type", "platform", "port"));
 
       // Open a File write to save the results
-      FileWriter writer = new FileWriter("result_" + new Date() + ".csv");
+      FileWriter writer = new FileWriter("result_" + Utils.fromDateToString(new Date()) + ".csv");
 
       var printer =
           new CSVPrinter(
