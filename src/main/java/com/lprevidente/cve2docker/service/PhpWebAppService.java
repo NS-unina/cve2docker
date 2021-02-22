@@ -273,7 +273,12 @@ public class PhpWebAppService {
         var dbName = matcher.group(1);
         contentEnv += "\nDB_NAME=" + dbName;
         contentEnv += "\nDUMP_NAME=" + FilenameUtils.removeExtension(sql.getName());
-        FileUtils.moveFileToDirectory(sql, new File(baseDir, "config/mysql/"), false);
+        final var confMySQLDir = new File(baseDir, "config/mysql/");
+
+        if(!confMySQLDir.exists() && !confMySQLDir.mkdirs())
+          throw new IOException("Impossible to create folder: "+confMySQLDir.getPath());
+
+        FileUtils.moveFileToDirectory(sql, confMySQLDir, false);
 
         write(env, contentEnv, StandardCharsets.UTF_8);
         om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
