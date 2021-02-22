@@ -35,11 +35,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginFormMaker() throws IOException {
     var edbID = "44559";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=form-maker"));
@@ -51,11 +49,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginWPPaginate() throws IOException {
     var edbID = "49355";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=wp-paginate"));
@@ -67,12 +63,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginColorbox() throws IOException {
     var edbID = "48919";
-
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=wp-colorbox"));
@@ -85,10 +78,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginEasyContactForm() throws IOException {
     var edbID = "49427";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
-    assertThrows(ExploitUnsupported.class, () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    assertThrows(
+        ExploitUnsupported.class,
+        () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
   }
 
   /**
@@ -99,10 +91,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginFromSoftwareLink() throws IOException {
     var edbID = "49544";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=contact-form-by-supsystic"));
@@ -115,11 +106,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationTheme() throws IOException {
     var edbID = "48083";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("THEME_NAME=fruitful"));
@@ -132,11 +121,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationThemeWithVulnerableApp() throws IOException {
     var edbID = "39552";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("THEME_NAME=beauty-&-clean"));
@@ -146,11 +133,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationCore() throws IOException {
     final var edbID = "47557";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=5.2.4"));
@@ -160,11 +145,9 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationCore2Version() throws IOException {
     final var edbID = "41224";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=4.7.1"));

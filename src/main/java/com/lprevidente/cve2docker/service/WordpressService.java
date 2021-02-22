@@ -14,6 +14,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ParseException;
@@ -27,6 +28,7 @@ import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -82,6 +84,22 @@ public class WordpressService {
           "wordpress.org\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
           Pattern.CASE_INSENSITIVE);
 
+  @PostConstruct
+  public void checkConfig() throws BeanCreationException {
+    var dir = new File(CONFIG_DIR);
+    if (!dir.exists() || !dir.isDirectory())
+      throw new BeanCreationException("No wordpress config dir present in " + CONFIG_DIR);
+
+    var filenames =
+        new String[] {"docker-compose.yml", "start.sh", "setup.sh", ".env", "config/php.conf.ini"};
+
+    for (var filename : filenames) {
+      var file = new File(dir, filename);
+      if (!file.exists())
+        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
+    }
+  }
+
   /**
    * Method to generate configuration for the exploit related to <b>Wordpress</b>. The configuration
    * consist in docker-compose, env file e other files depending on the exploit type.
@@ -127,7 +145,10 @@ public class WordpressService {
     String versionWordpress = null;
 
     final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-    if (!exploitDir.exists() && !exploitDir.mkdirs())
+    // If already exist the directory delete it
+    if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
+
+    if (!exploitDir.mkdirs())
       throw new IOException("Impossible to create folder: " + exploitDir.getPath());
 
     // Extract the main version
@@ -166,7 +187,7 @@ public class WordpressService {
     } else {
       File typeDir;
 
-      typeDir = new File(exploitDir, "/" + type.name() + "s/" + product);
+      typeDir = new File(exploitDir, "/" + type.name().toLowerCase() + "s/" + product);
       if (!typeDir.exists() && !typeDir.mkdirs())
         throw new IOException("Impossible to create folder: " + typeDir.getPath());
       var isCheckout = checkout(type, product, firstVersion, typeDir);
@@ -245,6 +266,9 @@ public class WordpressService {
    * @throws IOException exception occurred during the request to dockerhub
    */
   private SearchTagVO.TagVO findTag(@NonNull Version version) throws IOException {
+    // Doesn't exist a docker image before 4.0.0
+    if (version.compareTo(Version.parse("4.0.0")) < 0) return null;
+
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
 
     // Return all CPE that match the previous
@@ -270,17 +294,17 @@ public class WordpressService {
               .findFirst()
               .orElse(null);
 
-      // If not found, finding the FIRST repo with the containing name of the version
+      // If not found, finding the FIRST repo with the containing name of the version and not
+      // interested in cli version
       if (tag == null)
         tag =
             tags.stream()
                 .filter(
                     _t ->
-                        cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find())
+                        cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find()
+                            && !_t.getName().contains(("cli")))
                 .findFirst()
                 .orElse(null);
-
-      if (tag != null && tag.getName().contains("cli")) tag = null;
     }
     return tag;
   }

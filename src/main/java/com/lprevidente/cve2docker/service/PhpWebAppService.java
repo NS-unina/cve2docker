@@ -14,9 +14,11 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -57,15 +59,42 @@ public class PhpWebAppService {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
+  @PostConstruct
+  public void checkConfig() throws BeanCreationException {
+    var dir = new File(CONFIG_DIR);
+
+    if (!dir.exists() || !dir.isDirectory())
+      throw new BeanCreationException("No Joomla! config dir present in " + CONFIG_DIR);
+
+    var filenames =
+        new String[] {
+            "docker-compose.yml",
+            "start.sh",
+            ".env",
+            "config/php/php.ini",
+            "config/vhosts/default.conf"
+        };
+
+    for (var filename : filenames) {
+      var file = new File(dir, filename);
+      if (!file.exists())
+        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
+    }
+  }
+
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
       throws IOException, ConfigurationException, ExploitUnsupported {
     log.info("Generating configuration for PHP WebApp Exploit");
 
     final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-    if (!exploitDir.exists() && !exploitDir.mkdirs())
+
+    // If already exist the directory delete it
+    if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
+
+    if (!exploitDir.mkdirs())
       throw new IOException("Impossible to create folder: " + exploitDir.getPath());
 
-    String link = null;
+    String link;
     if (StringUtils.containsIgnoreCase(exploit.getSoftwareLink(), "www.sourcecodester.com")) {
       log.info(
           "Software link related to sourcecodester. Trying to extract the download link for the zip file");
@@ -102,14 +131,16 @@ public class PhpWebAppService {
 
       var endpoint = "";
       if (Objects.nonNull(index)) {
-        endpoint = "http://localhost" + StringUtils.remove(index.getCanonicalPath(), www.getCanonicalPath());
+        endpoint =
+            "http://localhost"
+                + StringUtils.remove(index.getCanonicalPath(), www.getCanonicalPath());
 
         // Activate any plugin/theme and test the configuration
         ConfigurationUtils.setupConfiguration(
             exploitDir, endpoint, MAX_TIME_TEST, removeConfig, (String[]) null);
 
         // setupConfiguration(exploitDir, type, product);
-        log.info("Container configured correctly! Go to: "+endpoint);
+        log.info("Container configured correctly! Go to: " + endpoint);
 
       } else throw new ConfigurationException("No index.php found");
 

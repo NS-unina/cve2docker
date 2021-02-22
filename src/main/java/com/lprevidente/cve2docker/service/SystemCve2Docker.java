@@ -62,6 +62,7 @@ public class SystemCve2Docker {
    */
   public void genConfigurationFromExploit(@NonNull Long edbID, boolean removeConfig)
       throws ExploitUnsupported, IOException, ConfigurationException {
+    log.info(" --- Generation Request for edbID = {}  removeConfig = {} ---", edbID, removeConfig);
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(edbID);

@@ -18,19 +18,15 @@ public class JoomlaServiceTest extends TestBase {
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
 
-  @Autowired
-  private SystemCve2Docker service;
-
+  @Autowired private SystemCve2Docker service;
 
   /** Exploit Joomla <i>Component</i> JS Job with VulnApp. */
   @Test
   public void genConfigurationComponentJsJob() throws IOException {
     final var edbID = "47232";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("COMPONENT_NAME=b8df21a9bed50ce4ee1681e0077e3b5d-jsjobs.zip"));
@@ -40,11 +36,9 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentEasyShop() throws IOException {
     final var edbID = "46219";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(
@@ -56,11 +50,9 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentProclaim() throws IOException {
     final var edbID = "44164";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(
@@ -71,11 +63,9 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentGoogleMapLandkarten() throws IOException {
     final var edbID = "44113";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
-
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
 
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(
@@ -86,9 +76,9 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationNoVulnApp() throws IOException {
     final var edbID = "48202";
-    File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    FileUtils.deleteDirectory(dir);
 
-    assertThrows(ExploitUnsupported.class, () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    assertThrows(
+        ExploitUnsupported.class,
+        () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
   }
 }

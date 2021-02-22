@@ -7,10 +7,12 @@ import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +46,31 @@ public class JoomlaService {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
+  @PostConstruct
+  public void checkConfig() throws BeanCreationException {
+    var dir = new File(CONFIG_DIR);
+
+    if (!dir.exists() || !dir.isDirectory())
+      throw new BeanCreationException("No Joomla! config dir present in " + CONFIG_DIR);
+
+    var filenames =
+        new String[] {
+          "docker-compose.yml",
+          "start.sh",
+          "setup.sh",
+          ".env",
+          "config/mysql/init.sql",
+          "config/joomla/configuration.php",
+          "config/joomla/install-joomla-extension.php"
+        };
+
+    for (var filename : filenames) {
+      var file = new File(dir, filename);
+      if (!file.exists())
+        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
+    }
+  }
+
   /**
    * Method to generate configuration for the exploit related to <b>Joomla</b>. The configuration
    * consist in docker-compose, env file e other files depending on the exploit type.
@@ -69,7 +96,10 @@ public class JoomlaService {
       // Creating the directoty
       final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
 
-      if (!exploitDir.exists() && !exploitDir.mkdirs())
+      // If already exist the directory delete it
+      if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
+
+      if (!exploitDir.mkdirs())
         throw new IOException("Impossible to create folder: " + exploitDir.getPath());
 
       log.info("Exploit has Vulnerable App. Downloading it");

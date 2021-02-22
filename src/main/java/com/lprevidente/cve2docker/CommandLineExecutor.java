@@ -40,7 +40,7 @@ public class CommandLineExecutor implements CommandLineRunner {
           }
         }
         break;
-      case "--test-all":
+      case "--gen-all":
         Date startDate = null;
         Date endDate = null;
         var types = new ArrayList<ExploitType>();
