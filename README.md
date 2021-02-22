@@ -33,8 +33,8 @@ There are mainly two ways of usage:
 - Generate a series of configurations starting from the list of all exploit in ExploitDB and defining different options
   like:
     - *starting date*: date after which the exploit has been published;
-    - *end date**:  date after which the exploit has been published
-    - *remove config*: remove the container after it has been tested; doesn't remove the files related to it
+    - *end date**:  date before which the exploit has been published;
+    - *remove config*: remove the container after it has been tested; doesn't remove the files related to it;
     - *list of exploit types*: WordPress, Joomla or PHP.
 
   Es. ``` java -jar cve2docker.jar --gen-all --start-date 2020-01-01 --end-date 2020-12-31 --remove-config wordpress ```
@@ -60,11 +60,11 @@ The situation for WordPress is *better* since there is an **official cli** and a
 and themes are saved. The configuration can be generated *only* for the exploit that meets the following requirements:
 
 - has a **clear distinction** in the title that is related to a PLUGIN, THEME or CORE;
-- has a **version written** in the title.
+- has a **version written** in the title;
 - if is a *plugin/theme* **is present in SVN** (the project and the specific version, since there are some cases where
   the developer has deleted that version) or **has a vulnerable app to download**; instead if is related to *core*,
-  there is an
-  **official WordPress image** for that version in docker hub.
+  there is an **official WordPress image** for that version in docker hub, so for versions before 4.0.0 is not possibile
+  to proceed.
 
 ### PHP WebApps [*Working in progress*]
 
