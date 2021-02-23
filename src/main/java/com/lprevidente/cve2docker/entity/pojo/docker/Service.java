@@ -22,5 +22,5 @@ public class Service {
   Map<String, String> environment;
   List<String> depends_on;
   List<String> links;
-  List<String> command;
+  String command;
 }

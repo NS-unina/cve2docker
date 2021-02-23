@@ -2,6 +2,7 @@ package com.lprevidente.cve2docker.utility;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 
 import java.io.*;
@@ -122,6 +123,7 @@ public class Utils {
     try (var zipFile = new ZipFile(input)) {
       var entries = zipFile.entries();
       while (entries.hasMoreElements()) {
+        // TODO: create zip folder
         var entry = entries.nextElement();
         var entryDestination = new File(output, entry.getName());
         if (entry.isDirectory()) {
@@ -148,5 +150,15 @@ public class Utils {
    */
   public static String formatString(@NonNull String in) {
     return in.toLowerCase().trim().replace(" ", "-").replace(".", "");
+  }
+
+  public static File createDir(@NonNull String path) throws IOException {
+    final var dir = new File(path);
+    // If already exist the directory delete it
+    if (dir.exists()) FileUtils.deleteDirectory(dir);
+
+    if (!dir.mkdirs())
+      throw new IOException("Impossible to create folder: " + dir.getPath());
+    return dir;
   }
 }

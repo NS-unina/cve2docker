@@ -46,13 +46,11 @@ There are some considerations to do for the automation process.
 
 ### Joomla
 
-*Not for all exploit* present in exploitDB is possible to create a configuration, *only* for those who meet the
+*Not for all exploits* present in exploitDB is possible to create a configuration, *only* for those who meet the
 following requirements:
 
-- is related to a Joomla **Component**;
-- have a **vulnerable app** associated with and is related to **Joomla 3.9.x** because for older version there is no
-  official image and also is difficult to create a script that automatically installs the component, since there is not
-  Joomla cli.
+- if related to a **Component/Plugin** has a **vulnerable app** associated with and is compatible wih **Joomla 3.9.x**,
+  otherwise if is related to **Core** there is a **official Joomla image** for that version;
 
 ### Wordpress
 

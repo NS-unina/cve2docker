@@ -36,8 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static com.lprevidente.cve2docker.utility.Utils.extractZip;
-import static com.lprevidente.cve2docker.utility.Utils.formatString;
+import static com.lprevidente.cve2docker.utility.Utils.*;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.*;
@@ -144,38 +143,23 @@ public class WordpressService {
 
     String versionWordpress = null;
 
-    final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-    // If already exist the directory delete it
-    if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
-
-    if (!exploitDir.mkdirs())
-      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
+    final var exploitDir = createDir(EXPLOITS_DIR + "/" + exploit.getId());
 
     // Extract the main version
     final var firstVersion = matcher.group(2);
 
     if (type == WordpressType.CORE) {
       // Extract the different type of version
-      final var less = matcher.group(1);
-      final var slash = matcher.group(3);
+      // final var less = matcher.group(1);
+      // final var slash = matcher.group(3);
       final var secondVersion = matcher.group(4);
-      SearchTagVO.TagVO tag;
-
+      SearchTagVO.TagVO tag = null;
       try {
-        if (isBlank(less) && isNotBlank(firstVersion) && isBlank(slash))
-          tag = findTag(Version.parse(firstVersion));
-        else if (isNotBlank(firstVersion) && isNotBlank(slash) && isNotBlank(secondVersion)) {
-          // Search at first for the first version, if no tag found search for the second
-          tag = findTag(Version.parse(firstVersion));
-          if (tag == null) tag = findTag(Version.parse(secondVersion));
-
-        } else if (isNotBlank(less) && isNotBlank(firstVersion)) {
-          tag = findTag(Version.parse(firstVersion));
-          if (tag == null) {
-            // TODO: sistemare
-            log.info("Tag not found with version < {}", firstVersion);
-          }
-        } else throw new ExploitUnsupported("Combination of versions not supported");
+        if (isNotBlank(firstVersion)) tag = findTag(Version.parse(firstVersion));
+        if (tag == null && isNotBlank(secondVersion)) tag = findTag(Version.parse(secondVersion));
+        if (tag == null && isBlank(firstVersion) && isBlank(secondVersion))
+          throw new ExploitUnsupported(
+              "Combination of version not supported: " + exploit.getTitle());
       } catch (ParseException e) {
         log.warn(e.toString());
         throw new ExploitUnsupported(e);
@@ -271,42 +255,13 @@ public class WordpressService {
 
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
 
-    // Return all CPE that match the previous
-    final var cpes = systemCve2Docker.getCpes(cpe);
-    if (cpes == null || cpes.getResult().getCpes().isEmpty()) return null;
-
-    SearchTagVO.TagVO tag = null;
-
-    //  Cycle through all CPE until find a tag on dockerhub corresponding to the version
-    final var iterator = cpes.getResult().getCpes().iterator();
-    while (iterator.hasNext() && tag == null) {
-      var cpeMatchVO = iterator.next();
-      final var tags =
-          systemCve2Docker.searchTags(
-              cpe.getProduct(), cpeMatchVO.getCpe().getVersion().toString());
-
-      // Search for a tag with the exact name of the version
-      tag =
-          tags.stream()
-              .filter(
-                  _t ->
-                      cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).matches())
-              .findFirst()
-              .orElse(null);
-
-      // If not found, finding the FIRST repo with the containing name of the version and not
-      // interested in cli version
-      if (tag == null)
-        tag =
-            tags.stream()
-                .filter(
-                    _t ->
-                        cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find()
-                            && !_t.getName().contains(("cli")))
-                .findFirst()
-                .orElse(null);
-    }
-    return tag;
+    return systemCve2Docker.findTag(
+        cpe,
+        (_t, cpeMatchVO) ->
+            cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).matches(),
+        (_t, cpeMatchVO) ->
+            cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find()
+                && !_t.getName().contains(("cli")));
   }
 
   /**

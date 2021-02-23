@@ -76,7 +76,7 @@ public class WordpressServiceTest extends TestBase {
    * Wordpress site and present in SVN but no tag related. Expected Exploit Unsupported Exception
    */
   @Test
-  public void genConfigurationPluginEasyContactForm() throws IOException {
+  public void genConfigurationPluginEasyContactForm() {
     var edbID = "49427";
     assertThrows(
         ExploitUnsupported.class,
