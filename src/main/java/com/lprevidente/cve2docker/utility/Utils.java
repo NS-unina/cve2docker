@@ -123,7 +123,6 @@ public class Utils {
     try (var zipFile = new ZipFile(input)) {
       var entries = zipFile.entries();
       while (entries.hasMoreElements()) {
-        // TODO: create zip folder
         var entry = entries.nextElement();
         var entryDestination = new File(output, entry.getName());
         if (entry.isDirectory()) {
@@ -138,6 +137,22 @@ public class Utils {
       }
       // Delete zip file after it has been extracted
       input.delete();
+    }
+  }
+
+  /**
+   * Check if the zip file is empty or not. In case of error, the result is false.
+   *
+   * @param input the zip file
+   * @return true is not empty, false otherwise
+   */
+  public static boolean isNotEmpty(@NonNull File input) {
+    try {
+      var zipFile = new ZipFile(input);
+      var entries = zipFile.entries();
+      return entries.hasMoreElements();
+    } catch (IOException e) {
+      return false;
     }
   }
 
@@ -157,8 +172,7 @@ public class Utils {
     // If already exist the directory delete it
     if (dir.exists()) FileUtils.deleteDirectory(dir);
 
-    if (!dir.mkdirs())
-      throw new IOException("Impossible to create folder: " + dir.getPath());
+    if (!dir.mkdirs()) throw new IOException("Impossible to create folder: " + dir.getPath());
     return dir;
   }
 }

@@ -140,6 +140,8 @@ public class JoomlaService {
       log.info("Exploit has Vulnerable App. Downloading it");
       final var zipFile = new File(exploitDir, "/component/" + exploit.getFilenameVulnApp());
       systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
+      if(!Utils.isNotEmpty(zipFile))
+        throw new ExploitUnsupported("The zip of Vulnerable App related to Exploit is empty or corrupted");
     } else
       throw new ExploitUnsupported(
           "No related to Core and No Vulnerable App available. Cannot complete!");

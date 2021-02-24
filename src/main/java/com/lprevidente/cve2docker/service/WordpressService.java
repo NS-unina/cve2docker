@@ -10,6 +10,7 @@ import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
+import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -190,8 +191,11 @@ public class WordpressService {
           zipFile = new File(exploitDir, product + ".zip");
           try {
             FileUtils.copyURLToFile(new URL(exploit.getSoftwareLink()), zipFile);
-            log.debug("Download completed");
-            downloaded = true;
+            downloaded = Utils.isNotEmpty(zipFile);
+            if(downloaded)
+              log.debug("Download completed");
+            else
+              log.warn("Zip file empty or corrupted");
           } catch (IOException e) {
             log.warn("Error during downloading from software link");
           }
