@@ -29,6 +29,8 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static com.lprevidente.cve2docker.utility.Utils.copyURLToFile;
+import static com.lprevidente.cve2docker.utility.Utils.decompress;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 import static java.util.regex.Pattern.compile;
 import static org.apache.commons.io.FileUtils.readFileToString;
@@ -86,20 +88,12 @@ public class PhpWebAppService {
       throws IOException, ConfigurationException, ExploitUnsupported {
     log.info("Generating configuration for PHP WebApp Exploit");
 
-    final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-
-    // If already exist the directory delete it
-    if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
-
-    if (!exploitDir.mkdirs())
-      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
-
     String link;
     if (StringUtils.containsIgnoreCase(exploit.getSoftwareLink(), "www.sourcecodester.com")) {
       log.info(
           "Software link related to sourcecodester. Trying to extract the download link for the zip file");
       link = extractDownloadLinkSourcecodester(exploit.getSoftwareLink());
-    } else if (StringUtils.containsIgnoreCase(exploit.getSoftwareLink(), "phpgurukul.com/")) {
+    } else if (StringUtils.containsIgnoreCase(exploit.getSoftwareLink(), "phpgurukul.com")) {
       log.info(
           "Software link related to phpgurukul.  Trying to extract the download link for the zip file");
       link = extractDownloadLinkPhpGuruKul(exploit.getSoftwareLink());
@@ -108,15 +102,21 @@ public class PhpWebAppService {
     // TODO: Product HomePage?
 
     if (Objects.nonNull(link)) {
+      final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
+      if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
+
+      if (!exploitDir.mkdirs())
+        throw new IOException("Impossible to create folder: " + exploitDir.getPath());
+
       log.info("Downloading the zip file");
       var zipName = link.substring(link.lastIndexOf("/") + 1);
       var dest = new File(exploitDir, zipName);
 
-      FileUtils.copyURLToFile(new URL(link), dest);
+      copyURLToFile(link, dest);
       var www = new File(exploitDir, "www/");
       if (!www.exists()) www.mkdir();
-      Utils.extractZip(dest, www);
 
+      decompress(dest, www);
       log.info("Download completed");
 
       copyContent(exploitDir);
@@ -140,7 +140,7 @@ public class PhpWebAppService {
             exploitDir, endpoint, MAX_TIME_TEST, removeConfig, (String[]) null);
 
         // setupConfiguration(exploitDir, type, product);
-        log.info("Container configured correctly! Go to: " + endpoint);
+        log.info("Container configured correctly! Run container and go to: " + endpoint);
 
       } else throw new ConfigurationException("No index.php found");
 
@@ -217,7 +217,7 @@ public class PhpWebAppService {
     if (Objects.isNull(files) || files.length == 0)
       throw new ConfigurationException("No project in the www folder");
 
-    if (files.length != 1)
+    if (files.length != 1) // TODO: creare una cartella contenitore?
       throw new ConfigurationException(
           "More than one file in the www folder. There should be only one directory");
 
@@ -273,8 +273,8 @@ public class PhpWebAppService {
         var dbName = matcher.group(1);
         contentEnv += "\nDB_NAME=" + dbName;
         contentEnv += "\nDUMP_NAME=" + FilenameUtils.removeExtension(sql.getName());
-        final var confMySQLDir = new File(baseDir, "config/mysql/");
 
+        final var confMySQLDir = new File(baseDir, "config/mysql/");
         if(!confMySQLDir.exists() && !confMySQLDir.mkdirs())
           throw new IOException("Impossible to create folder: "+confMySQLDir.getPath());
 

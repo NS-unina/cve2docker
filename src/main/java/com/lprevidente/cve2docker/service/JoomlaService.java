@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static com.lprevidente.cve2docker.entity.pojo.JoomlaType.CORE;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -108,9 +109,9 @@ public class JoomlaService {
     final var matcher = PATTERN_CORE_JOOMLA.matcher(exploit.getTitle());
 
     if (matcher.find()) {
-      type = JoomlaType.CORE;
+      type = CORE;
       // Extracting the versions
-     //  final var less = matcher.group(1);
+      //  final var less = matcher.group(1);
       final var firstVersion = matcher.group(2);
       // final var separator = matcher.group(3); // / or <
       final var secondVersion = matcher.group(4);
@@ -140,8 +141,7 @@ public class JoomlaService {
       log.info("Exploit has Vulnerable App. Downloading it");
       final var zipFile = new File(exploitDir, "/component/" + exploit.getFilenameVulnApp());
       systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
-      if(!Utils.isNotEmpty(zipFile))
-        throw new ExploitUnsupported("The zip of Vulnerable App related to Exploit is empty or corrupted");
+
     } else
       throw new ExploitUnsupported(
           "No related to Core and No Vulnerable App available. Cannot complete!");
@@ -151,7 +151,7 @@ public class JoomlaService {
     log.info("Configuration created. Trying to configure it..");
 
     String[] cmdSetup =
-        exploit.getFilenameVulnApp() == null
+        type == CORE
             ? new String[] {"sh", "setup.sh"}
             : new String[] {"sh", "setup.sh", exploit.getFilenameVulnApp()};
     // Setup
@@ -169,8 +169,10 @@ public class JoomlaService {
    * @throws IOException exception occurred during the request to dockerhub
    */
   private SearchTagVO.TagVO findTag(@NonNull Version version) throws IOException {
-    // Doesn't exist a docker image before 4.0.0
-    if (version.compareTo(Version.parse("3.4")) < 0) return null;
+    if(version.getNumberOfComponents() < 3)
+      version.setNumberOfComponents(3);
+    // Doesn't exist a docker image before 3.4
+    if (version.compareTo(Version.parse("3.4.0")) < 0) return null;
 
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "joomla", "joomla%5c!", version);
 

@@ -27,6 +27,7 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 
 @Slf4j
@@ -67,7 +68,14 @@ public class SystemCve2Docker {
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(edbID);
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      e.printStackTrace();
+      log.warn("Retrying...");
+      try {
+        TimeUnit.MINUTES.sleep(1);
+        exploitDB = exploitDBService.getExploitDBFromSite(edbID);
+      } catch (Exception ignored) {
+      }
     }
 
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
@@ -104,8 +112,8 @@ public class SystemCve2Docker {
           CSVParser.parse(
               new URL(EXPLOITS_URL_GITHUB),
               StandardCharsets.UTF_8,
-              CSVFormat.DEFAULT.withHeader(
-                  "id", "file", "description", "date", "author", "type", "platform", "port"));
+              CSVFormat.RFC4180.withHeader(
+                  "id", "file", "description", "date", "author", "type", "platform", "port").withDelimiter(','));
 
       // Open a File write to save the results
       FileWriter writer = new FileWriter("result_" + Utils.fromDateToString(new Date()) + ".csv");
@@ -157,10 +165,13 @@ public class SystemCve2Docker {
         if (nTested % 10 == 0) {
           log.debug("Cleaning docker networks");
           Utils.executeShellCmd("docker network prune -f");
+          log.debug("Cleaning docker volumes");
+          Utils.executeShellCmd("docker volume prune -f");
         }
       }
 
       exploits.close();
+      printer.flush();
       printer.close();
     } catch (IOException e) {
       log.error("Error reading exploit csv file from GitHub: {}", e.getMessage());

@@ -36,11 +36,11 @@ fi
 # Install the extension
 if [ ! -z "$1" ]; then
 
-  res=$(docker-compose exec -T joomla php /var/www/html/cli/install-joomla-extension.php --package=/var/www/html/work_directory/$1 2>&1)
+  res=$(docker-compose exec -T joomla php /var/www/html/cli/install-joomla-extension.php --package="/var/www/html/work_directory/$1" 2>&1)
 
   # Retry if fails
   if [ $? -ne 0 ]; then
-    res=$(docker-compose exec -T joomla php /var/www/html/cli/install-joomla-extension.php --package=/var/www/html/work_directory/$1 2>&1)
+    res=$(docker-compose exec -T joomla php /var/www/html/cli/install-joomla-extension.php --package="/var/www/html/work_directory/$1" 2>&1)
   fi
 
   if [ $? -eq 0 ]; then

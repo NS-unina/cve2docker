@@ -10,7 +10,6 @@ import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
-import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -32,11 +31,11 @@ import org.tmatesoft.svn.core.wc.SVNWCUtil;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static com.lprevidente.cve2docker.utility.Utils.isNotEmpty;
 import static com.lprevidente.cve2docker.utility.Utils.*;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
@@ -81,7 +80,7 @@ public class WordpressService {
 
   private static final Pattern PATTERN_TARGET_WORDPRESS =
       Pattern.compile(
-          "wordpress.org\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
+          "wordpress.org(?:.*?)\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
           Pattern.CASE_INSENSITIVE);
 
   @PostConstruct
@@ -126,11 +125,31 @@ public class WordpressService {
     var target = matcherWordpress.group(2).trim();
 
     // Extract the version from title
-    final var matcher = PATTERN_VERSION.matcher(target);
-    if (!matcher.find())
-      throw new ExploitUnsupported("Version not present or pattern unkown: " + target);
+    var matcher = PATTERN_VERSION.matcher(target);
+    final String firstVersion;
+    final String secondVersion;
+    String entireVersion = "";
+
+    var find = matcher.find();
+    if (!find && isNotBlank(exploit.getVersion())) {
+      // Extract the version from Version in PoC
+      matcher = PATTERN_VERSION.matcher(exploit.getVersion());
+      find = matcher.find();
+    }
+
+    if (find) { // If there is a pattern version
+      entireVersion = matcher.group();
+      firstVersion = matcher.group(2);
+      secondVersion = matcher.group(4);
+    } else if (type != WordpressType.CORE
+        && isNotBlank(exploit.getFilenameVulnApp())) { // There is a vulnerable app for pluign/theme
+      firstVersion = null;
+      secondVersion = null;
+    } else throw new ExploitUnsupported("Version unknown - Target = " + target+"   # Version = "+exploit.getVersion());
 
     String product = null;
+    // Trying to extract the name of plugin/theme from software link or product link
+    // if they are related to wordpress.org
     if (isNotBlank(exploit.getSoftwareLink())) {
       var targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getSoftwareLink());
       if (targetMatcher.find()) product = targetMatcher.group(1);
@@ -139,21 +158,15 @@ public class WordpressService {
         if (targetMatcher.find()) product = targetMatcher.group(1);
       }
     }
-    // Remove the version
-    if (product == null) product = formatString(target.replace(matcher.group(), ""));
+
+    // If the product hasn't been found in the links, extract it from title removing the version and extracting
+    if (product == null) product = formatString(remove(target, entireVersion));
 
     String versionWordpress = null;
 
     final var exploitDir = createDir(EXPLOITS_DIR + "/" + exploit.getId());
 
-    // Extract the main version
-    final var firstVersion = matcher.group(2);
-
     if (type == WordpressType.CORE) {
-      // Extract the different type of version
-      // final var less = matcher.group(1);
-      // final var slash = matcher.group(3);
-      final var secondVersion = matcher.group(4);
       SearchTagVO.TagVO tag = null;
       try {
         if (isNotBlank(firstVersion)) tag = findTag(Version.parse(firstVersion));
@@ -175,9 +188,11 @@ public class WordpressService {
       typeDir = new File(exploitDir, "/" + type.name().toLowerCase() + "s/" + product);
       if (!typeDir.exists() && !typeDir.mkdirs())
         throw new IOException("Impossible to create folder: " + typeDir.getPath());
-      var isCheckout = checkout(type, product, firstVersion, typeDir);
 
-      // if checkout is failed try with software link if exist
+      var isCheckout = false;
+      if (isNotBlank(firstVersion)) isCheckout = checkout(type, product, firstVersion, typeDir);
+
+      // If checkout failed try with software link if exist
       if (!isCheckout) {
         var downloaded = false;
         File zipFile = null;
@@ -185,18 +200,19 @@ public class WordpressService {
         // Try to download the zip file from software link
         if (isNotBlank(exploit.getSoftwareLink())
             && contains(exploit.getSoftwareLink(), product)
+            && isNotBlank(firstVersion)
             && contains(exploit.getSoftwareLink(), firstVersion)) {
 
-          log.debug("Trying to download it from Software link...");
+          log.debug("Trying to download it from Software link: {}", exploit.getSoftwareLink());
+
           zipFile = new File(exploitDir, product + ".zip");
           try {
-            FileUtils.copyURLToFile(new URL(exploit.getSoftwareLink()), zipFile);
-            downloaded = Utils.isNotEmpty(zipFile);
-            if(downloaded)
-              log.debug("Download completed");
-            else
-              log.warn("Zip file empty or corrupted");
-          } catch (IOException e) {
+            // subs
+            copyURLToFile(exploit.getSoftwareLink(), zipFile);
+            downloaded = isNotEmpty(zipFile);
+            if (downloaded) log.debug("Download completed");
+            else log.warn("Zip file empty or corrupted");
+          } catch (Exception e) {
             log.warn("Error during downloading from software link");
           }
         }
@@ -215,7 +231,7 @@ public class WordpressService {
         }
 
         if (downloaded) {
-          extractZip(zipFile, typeDir);
+          decompress(zipFile, typeDir);
           var files = typeDir.listFiles();
           if (files != null && files.length == 1 && files[0].isDirectory()) {
             FileUtils.copyDirectory(files[0], typeDir);
