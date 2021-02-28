@@ -145,7 +145,12 @@ public class WordpressService {
         && isNotBlank(exploit.getFilenameVulnApp())) { // There is a vulnerable app for pluign/theme
       firstVersion = null;
       secondVersion = null;
-    } else throw new ExploitUnsupported("Version unknown - Target = " + target+"   # Version = "+exploit.getVersion());
+    } else
+      throw new ExploitUnsupported(
+          "Version unknown and no vulnerable app is present - Target = "
+              + target
+              + "  # Version = "
+              + exploit.getVersion());
 
     String product = null;
     // Trying to extract the name of plugin/theme from software link or product link
@@ -159,7 +164,8 @@ public class WordpressService {
       }
     }
 
-    // If the product hasn't been found in the links, extract it from title removing the version and extracting
+    // If the product hasn't been found in the links, extract it from title removing the version and
+    // extracting
     if (product == null) product = formatString(remove(target, entireVersion));
 
     String versionWordpress = null;
@@ -270,8 +276,8 @@ public class WordpressService {
    * @throws IOException exception occurred during the request to dockerhub
    */
   private SearchTagVO.TagVO findTag(@NonNull Version version) throws IOException {
-    // Doesn't exist a docker image before 4.0.0
-    if (version.compareTo(Version.parse("4.0.0")) < 0) return null;
+    // Doesn't exist a docker image before 4.1.0
+    if (version.compareTo(Version.parse("4.1.0")) < 0) return null;
 
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
 
