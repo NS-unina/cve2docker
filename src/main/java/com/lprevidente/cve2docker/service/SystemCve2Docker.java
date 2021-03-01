@@ -146,10 +146,10 @@ public class SystemCve2Docker {
         var date = Utils.fromStringToDate(record.get("date"));
 
         // IF startDate is set and the date of exploit is before, jump to next one
-        if (Objects.nonNull(startDate) && !date.after(startDate)) continue;
+        if (Objects.nonNull(startDate) && date.before(startDate)) continue;
 
         // IF endDate is set and the date of exploit is after, jump to next one
-        if (Objects.nonNull(endDate) && !date.before(endDate)) continue;
+        if (Objects.nonNull(endDate) && date.after(endDate)) continue;
 
         try {
           genConfigurationFromExploit(Long.parseLong(record.get("id")), removeConfig);
