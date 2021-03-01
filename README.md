@@ -8,11 +8,12 @@ in [ExploitDB](https://www.exploit-db.com). Currently *are supported* only explo
 - **PHP WebApps**
 
 For *WordPress* and **Joomla** there is always the same configuration, that is  ```user/password = test```
-, ```project title = test```, ```email = test@test.test```.
+, ```project title = test```, ```email = test@test.test```. So the tool takes care of the **initialization of the
+project** and also the possible installation of the *plugin*, *theme* or *component* associated with it.
 
 For MySQL the root password is simple ```root```.
 
-See **consideration** section for more info.
+See **consideration** section for more info for which exploit is capable of generating.
 
 ## Getting Started
 
@@ -24,21 +25,42 @@ You need to have:
 - [**Docker**](https://docs.docker.com/engine/)
 - [**Docker-compose**](https://docs.docker.com/compose/)
 
-### Usage
+### Generate configuration starting from EdbID
 
-There are mainly two ways of usage:
+If you are interested in generating a configuration for one particular exploit, you only need the **EdbID**:
 
-- Generate a configuration for one particular exploit or a list of it, starting from edbid.
-  Es ``` java -jar cve2docker.jar --edb-id 12345 ```
-- Generate a series of configurations starting from the list of all exploit in ExploitDB and defining different options
-  like:
-    - *starting date*: date after which the exploit has been published;
-    - *end date**:  date before which the exploit has been published;
-    - *remove config*: remove the container after it has been tested; doesn't remove the files related to it;
-    - *list of exploit types*: WordPress, Joomla or PHP.
+```
+ java -jar cve2docker.jar --edb-id 12345 
+```
 
-  Es. ``` java -jar cve2docker.jar --gen-all --start-date 2020-01-01 --end-date 2020-12-31 --remove-config wordpress ```
-  . At the end of this process, the program **generates a CSV** with the result of all configuration.
+You can also generate *multiple configurations* at the same time:
+
+```
+ java -jar cve2docker.jar --edb-id 12345 6789 87652
+```
+
+If the generation **success**, you can find it in `content/generated/{edbid}`
+where you just need to launch the command `docker-compose up`.
+
+### Generate configurations based on criteria
+
+You can also generate a series of configurations based on *different criteria* (no one is mandatory):
+
+``` 
+java -jar cve2docker.jar --gen-all --start-date 2020-01-01 --end-date 2020-12-31 --remove-config wordpress joomla
+```
+
+Where:
+
+- **--starting-date**: date (*included*) after which the exploit has been published;
+- **--end-date**:  date (*included*) before which the exploit has been published;
+- **--remove-config**: remove the container after it has been tested. *Doesn't remove the files related to it*;
+- **list of exploit types**: WordPress, Joomla or PHP.
+
+At the end of this process, the program **generates a CSV** with the name `result.csv` with the result of all
+configuration.
+
+**Please note** that this command removes *all docker networks* (every 10 configurations) created to free space.
 
 ## Consideration
 
@@ -61,7 +83,7 @@ and themes are saved. The configuration can be generated *only* for the exploit 
 - has a **version written** in the title;
 - if is a *plugin/theme* **is present in SVN** (the project and the specific version, since there are some cases where
   the developer has deleted that version) or **has a vulnerable app to download**; instead if is related to *core*,
-  there is an **official WordPress image** for that version in docker hub, so for versions before 4.0.0 is not possibile
+  there is an **official WordPress image** for that version in docker hub, so for versions before 4.1.0 is not possibile
   to proceed.
 
 ### PHP WebApps [*Working in progress*]

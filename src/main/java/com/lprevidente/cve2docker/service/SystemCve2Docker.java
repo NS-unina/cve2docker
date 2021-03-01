@@ -81,11 +81,14 @@ public class SystemCve2Docker {
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
 
     log.info("Exploit Found in ExploitDB");
-
-    if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name()))
+    var containsWordpress = StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
+    var containsJoomla = StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+    if (containsWordpress && !containsJoomla)
       wordpressService.genConfiguration(exploitDB, removeConfig);
-    else if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name()))
+    else if (containsJoomla && !containsWordpress)
       joomlaService.genConfiguration(exploitDB, removeConfig);
+    else if (containsJoomla && containsWordpress)
+      throw new ExploitUnsupported("CMS not unique. Reference to both WordPress and Joomla!");
     else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
       phpWebAppService.genConfiguration(exploitDB, removeConfig);
   }
@@ -143,10 +146,10 @@ public class SystemCve2Docker {
         var date = Utils.fromStringToDate(record.get("date"));
 
         // IF startDate is set and the date of exploit is before, jump to next one
-        if (Objects.nonNull(startDate) && date.before(startDate)) continue;
+        if (Objects.nonNull(startDate) && !date.after(startDate)) continue;
 
         // IF endDate is set and the date of exploit is after, jump to next one
-        if (Objects.nonNull(endDate) && date.after(endDate)) continue;
+        if (Objects.nonNull(endDate) && !date.before(endDate)) continue;
 
         try {
           genConfigurationFromExploit(Long.parseLong(record.get("id")), removeConfig);
@@ -165,8 +168,6 @@ public class SystemCve2Docker {
         if (nTested % 10 == 0) {
           log.debug("Cleaning docker networks");
           Utils.executeShellCmd("docker network prune -f");
-          log.debug("Cleaning docker volumes");
-          Utils.executeShellCmd("docker volume prune -f");
         }
       }
 
