@@ -6,9 +6,7 @@ spring:
       base-url: https://hub.docker.com
       max-page-size: 100
     exploit-db:
-      base-url: https://www.exploit-db.com
-      max-retry-next: 10
-      update: true
+      base-url: https://www.exploit-db.com/
     nist:
       base-url: https://services.nvd.nist.gov/rest/json/
     wordpress:

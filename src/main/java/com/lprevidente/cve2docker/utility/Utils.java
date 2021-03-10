@@ -2,40 +2,32 @@ package com.lprevidente.cve2docker.utility;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
+import org.yaml.snakeyaml.util.UriEncoder;
 
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.regex.MatchResult;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
 @Slf4j
 public class Utils {
 
-  // RegEx for Cmd Docker Run
-  private static final Pattern PATTERN_DOCKER_RUN =
-      Pattern.compile("docker run [^`]*", Pattern.CASE_INSENSITIVE);
-
   private static final SimpleDateFormat YYYY_MM_DD = new SimpleDateFormat("yyyy-MM-dd");
 
   private static final SimpleDateFormat YYYY_MM_DD_HH_MM_SS =
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-
-  /**
-   * Find inside the text the 'docker run' cmd
-   *
-   * @param text where to search
-   * @return an array with all accurrency of the pattern. In case of no cmd found, the array is
-   *     empty
-   */
-  public static String[] getDockerRunCmdLine(@NonNull String text) {
-    Matcher matcher = PATTERN_DOCKER_RUN.matcher(text);
-    return matcher.results().map(MatchResult::group).toArray(String[]::new);
-  }
 
   /**
    * Utility to execute the a shell command.
@@ -77,19 +69,6 @@ public class Utils {
   }
 
   /**
-   * Execute the library composerize to transform a cmd of type 'docker run' to a docker-compose
-   *
-   * @param dockeRunCmd the cmd to be transform
-   * @return a string corrispondent to docker compose
-   * @throws IOException in case of error
-   * @throws InterruptedException in case of error
-   */
-  public static String fromDockerRun2DockerCompose(@NonNull String dockeRunCmd)
-      throws IOException, InterruptedException {
-    return executeShellCmd("composerize " + dockeRunCmd);
-  }
-
-  /**
    * Convert a String to date
    *
    * @param date must by in the format yy-MM-dd
@@ -111,6 +90,28 @@ public class Utils {
   }
 
   /**
+   * Extract the <i>compress</i> file, with the the appropriate algorithm in the output directory
+   * provided and after the extraction is completed the <b>zip file is deleted</b>.
+   *
+   * @param input the tar file
+   * @param output the directory in which the zip should be extracted.
+   * @throws IOException if an I/O error has occurred
+   */
+  public static void decompress(@NonNull File input, @NonNull File output) throws IOException {
+    final var extension = FilenameUtils.getExtension(input.getName());
+    switch (extension) {
+      case "zip":
+        unZip(input, output);
+        break;
+      case "tar":
+        unTar(input, output);
+        break;
+      default:
+        throw new IOException("Impossible to decompress: Unknown format: " + extension);
+    }
+  }
+
+  /**
    * Extract the zip file in the output directory provided and after the extraction is completed the
    * <b>zip file is deleted</b>.
    *
@@ -118,7 +119,7 @@ public class Utils {
    * @param output the directory in which the zip should be extracted.
    * @throws IOException if an I/O error has occurred
    */
-  public static void extractZip(@NonNull File input, @NonNull File output) throws IOException {
+  private static void unZip(@NonNull File input, @NonNull File output) throws IOException {
     try (var zipFile = new ZipFile(input)) {
       var entries = zipFile.entries();
       while (entries.hasMoreElements()) {
@@ -140,13 +141,116 @@ public class Utils {
   }
 
   /**
-   * Format the input string replacing the space with -, removing the . (dots) and convert all the
-   * characters in to lower case
+   * Extract the <b>tar</b> file in the output directory provided and after the extraction is
+   * completed the <b>zip file is deleted</b>.
+   *
+   * @param input the tar file
+   * @param output the directory in which the zip should be extracted.
+   * @throws IOException if an I/O error has occurred
+   */
+  private static void unTar(@NonNull File input, @NonNull File output) throws IOException {
+    try (var tar = new TarArchiveInputStream(new FileInputStream(input))) {
+      TarArchiveEntry entry;
+      while ((entry = tar.getNextTarEntry()) != null) {
+        var entryDestination = new File(output, entry.getName());
+        if (entry.isDirectory()) entryDestination.mkdirs();
+        else {
+          entryDestination.getParentFile().mkdirs();
+          try (var out = new FileOutputStream(entryDestination)) {
+            IOUtils.copy(tar, out);
+          }
+        }
+      }
+    }
+    // Delete zip file after it has been extracted
+    input.delete();
+  }
+
+  public static boolean isNotEmpty(@NonNull File input) {
+    final var extension = FilenameUtils.getExtension(input.getName());
+    switch (extension) {
+      case "zip":
+        return isZipNotEmpty(input);
+      case "tar":
+        return isTarNotEmpty(input);
+      default:
+        log.warn("Impossible to open the file. Extension unknown: {}", extension);
+        return false;
+    }
+  }
+
+  /**
+   * Check if the zip file is empty or not. In case of error, the result is false.
+   *
+   * @param input the zip file
+   * @return true is not empty, false otherwise
+   */
+  private static boolean isZipNotEmpty(@NonNull File input) {
+    try {
+      var zipFile = new ZipFile(input);
+      var entries = zipFile.entries();
+      return entries.hasMoreElements();
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  /**
+   * Check if the tar file is empty or not. In case of error, the result is false.
+   *
+   * @param input the zip file
+   * @return true is not empty, false otherwise
+   */
+  private static boolean isTarNotEmpty(@NonNull File input) {
+    try {
+      var tar = new TarArchiveInputStream(new FileInputStream(input));
+      return tar.getNextTarEntry() != null;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  /**
+   * Copy a content from the link provided into the output provided. Also manage a possibile
+   * redirection
+   *
+   * @param url the link
+   * @param output where to store the file
+   * @throws IOException if an I/O error has occurred
+   */
+  public static void copyURLToFile(@NonNull String url, @NonNull File output) throws IOException {
+    try {
+      var client = HttpClient.newHttpClient();
+      var request =
+          HttpRequest.newBuilder(new URI(UriEncoder.encode(url)))
+              .method("HEAD", HttpRequest.BodyPublishers.noBody())
+              .build();
+      final var response = client.send(request, HttpResponse.BodyHandlers.discarding());
+
+      if (response.statusCode() == 301) url = response.headers().map().get("Location").get(0);
+      FileUtils.copyURLToFile(new URL(url), output);
+    } catch (URISyntaxException | InterruptedException e) {
+      throw new IOException("Error downloading vulnerable App: " + e.getMessage());
+    }
+  }
+
+  /**
+   * Format the input string replacing the space or : with -, removing the . (dots) and convert all
+   * the characters in to lower case
    *
    * @param in input string
    * @return the string formatted
    */
   public static String formatString(@NonNull String in) {
-    return in.toLowerCase().trim().replace(" ", "-").replace(".", "");
+    return in.toLowerCase().trim().replace(" ", "-").replace(".", "").replace(":", "-");
+  }
+
+  public static File createDir(@NonNull String path) throws IOException {
+    final var dir = new File(path);
+    // If already exist the directory delete it
+    if (dir.exists()) FileUtils.deleteDirectory(dir);
+
+    if (!dir.mkdirs()) throw new IOException("Impossible to create folder: " + dir.getPath());
+    return dir;
   }
 }

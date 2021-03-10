@@ -10,15 +10,17 @@
     </parent>
     <groupId>com.lprevidente</groupId>
     <artifactId>cve2docker</artifactId>
-    <version>1.0.0</version>
+    <version>0.0.1</version>
     <name>cve2docker</name>
     <description>Search and Generate Docker Configurations for CVE</description>
 
     <properties>
         <java.version>11</java.version>
-        <retrofit.version>2.9.0</retrofit.version>
+        <retrofit.version>2.7.2</retrofit.version>
         <apache.common.langs.version>3.11</apache.common.langs.version>
         <apache.common.io.version>2.8.0</apache.common.io.version>
+        <apache.common.tar.version>1.18</apache.common.tar.version>
+        <apache.common.collections.version>4.4</apache.common.collections.version>
         <jsoup.version>1.13.1</jsoup.version>
         <javax.version>1.3.2</javax.version>
         <jackson.version>2.12.1</jackson.version>
@@ -27,16 +29,16 @@
     </properties>
 
     <dependencies>
-        <!-- JPA
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        -->
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -52,6 +54,12 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Log4j -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+        </dependency>
+
         <!-- JavaX annotation -->
         <dependency>
             <groupId>javax.annotation</groupId>
@@ -59,38 +67,11 @@
             <version>${javax.version}</version>
         </dependency>
 
-        <!-- Javax Validation for JPA
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-            <version>2.0.1.Final</version>
-        </dependency>
-        -->
-
-        <!-- MySQL Connector
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        -->
-
         <!-- Lombok Annotations -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- Log -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
         </dependency>
 
         <!-- Retrofit HTTP Client -->
@@ -131,7 +112,14 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
-            <version>4.4</version>
+            <version>${apache.common.collections.version}</version>
+        </dependency>
+
+        <!--  Tar -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>${apache.common.tar.version}</version>
         </dependency>
 
         <!-- Apache CSV -->
@@ -172,6 +160,7 @@
 
     <build>
         <plugins>
+            <!--  run -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -183,6 +172,25 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <!--  Assembly Process -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <descriptors>
+                                <descriptor>assembly.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

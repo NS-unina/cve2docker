@@ -6,6 +6,7 @@ import com.lprevidente.cve2docker.entity.vo.nist.SearchCpeVO;
 import com.lprevidente.cve2docker.entity.vo.nist.VulnerabilityVO;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import retrofit2.Retrofit;
@@ -13,6 +14,7 @@ import retrofit2.converter.jackson.JacksonConverterFactory;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -25,9 +27,16 @@ public class NistService {
 
   @PostConstruct
   public void initRetrofit() {
+    var okHttpClient =
+        new OkHttpClient()
+            .newBuilder()
+            .connectTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .build();
     Retrofit retrofit =
         new Retrofit.Builder()
             .baseUrl(BASE_PATH)
+            .client(okHttpClient)
             .addConverterFactory(JacksonConverterFactory.create())
             .build();
     nistAPI = retrofit.create(NistAPI.class);

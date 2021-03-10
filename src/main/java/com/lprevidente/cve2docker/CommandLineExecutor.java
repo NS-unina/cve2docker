@@ -1,7 +1,6 @@
 package com.lprevidente.cve2docker;
 
 import com.lprevidente.cve2docker.entity.pojo.ExploitType;
-import com.lprevidente.cve2docker.exception.InputException;
 import com.lprevidente.cve2docker.service.SystemCve2Docker;
 import com.lprevidente.cve2docker.utility.Utils;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Objects;
 
 @ConditionalOnProperty(
     prefix = "command.line.runner",
@@ -22,57 +22,84 @@ import java.util.Date;
 @Slf4j
 public class CommandLineExecutor implements CommandLineRunner {
 
-  @Autowired
-  private SystemCve2Docker system;
+  @Autowired private SystemCve2Docker system;
 
   @Override
-  public void run(String... args) throws InputException {
-    if (args.length == 0) throw new InputException("No Input Provided");
+  public void run(String... args) {
+    if (args.length > 0) {
 
-    switch (args[0]) {
-      case "--edb-id":
-        if (args.length == 1) throw new InputException("No edbID provided");
-        for (int i = 1; i < args.length; i++) {
-          try {
-            system.genConfigurationFromExploit(Long.parseLong(args[i]), false);
-          } catch (Exception e) {
-            log.warn(e.getMessage());
-          }
-        }
-        break;
-      case "--test-all":
-        Date startDate = null;
-        Date endDate = null;
-        var types = new ArrayList<ExploitType>();
-        boolean removeConfig = false;
-        try {
-          for (int i = 1; i < args.length; i++) {
-            switch (args[i]) {
-              case "--start-date":
-                i++;
-                if (i == args.length) throw new InputException("No start date provided");
-                else startDate = Utils.fromStringToDate(args[i]);
-                break;
-              case "--end-date":
-                i++;
-                if (i == args.length) throw new InputException("No end date provided");
-                else endDate = Utils.fromStringToDate(args[i]);
-                break;
-              case "--remove-config":
-                removeConfig = true;
-                break;
-              default:
-                types.add(ExploitType.valueOf(args[i].toUpperCase()));
-                break;
+      switch (args[0]) {
+        case "--edb-id":
+          if (args.length > 1) {
+            for (int i = 1; i < args.length; i++) {
+              try {
+                system.genConfigurationFromExploit(Long.parseLong(args[i]), false);
+              } catch (Exception e) {
+                log.error(e.getMessage());
+              }
             }
+          } else log.error("No edbID provided");
+          break;
+        case "--gen-all":
+          Date startDate = null;
+          Date endDate = null;
+          var types = new ArrayList<ExploitType>();
+          boolean removeConfig = false;
+          boolean ok = true;
+          try {
+            for (int i = 1; i < args.length; i++) {
+              switch (args[i]) {
+                case "--start-date":
+                  i++;
+                  if (i <= args.length - 1) startDate = Utils.fromStringToDate(args[i]);
+                  else {
+                    ok = false;
+                    log.error("No start date provided");
+                  }
+                  break;
+                case "--end-date":
+                  i++;
+                  if (i <= args.length - 1) endDate = Utils.fromStringToDate(args[i]);
+                  else {
+                    ok = false;
+                    log.error("No end date provided");
+                  }
+                  break;
+                case "--remove-config":
+                  removeConfig = true;
+                  break;
+                default:
+                  if (args[i].contains("-")) {
+                    ok = false;
+                    log.error("Unknow command: {}", args[i]);
+                  } else {
+                    try {
+                      types.add(ExploitType.valueOf(args[i].toUpperCase()));
+                    } catch (Exception e) {
+                      ok = false;
+                      log.error("Exploit Type Unknown: {}", args[i]);
+                    }
+                  }
+                  break;
+              }
+            }
+            if (Objects.nonNull(startDate)
+                && Objects.nonNull(endDate)
+                && !startDate.before(endDate)) {
+              ok = false;
+              log.error("Start Date is after the End Date");
+            }
+            if (ok) system.genConfigurations(startDate, endDate, removeConfig, types);
+          } catch (Exception e) {
+            log.error("Error: {}", e.getMessage());
           }
-          system.genConfigurations(startDate, endDate, removeConfig, types);
-        } catch (Exception e) {
-          log.error("Error: {}", e.getMessage());
-        }
-        break;
-      default:
-        throw new InputException("No such command: "+args[0]);
-    }
+          break;
+        default:
+          log.error("No such command: " + args[0]);
+      }
+    } else log.error("No Input Provided");
+    log.info("--- End ---");
+
+    System.exit(0);
   }
 }

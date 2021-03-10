@@ -14,6 +14,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ParseException;
@@ -27,15 +28,15 @@ import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static com.lprevidente.cve2docker.utility.Utils.extractZip;
-import static com.lprevidente.cve2docker.utility.Utils.formatString;
+import static com.lprevidente.cve2docker.utility.Utils.isNotEmpty;
+import static com.lprevidente.cve2docker.utility.Utils.*;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.*;
@@ -79,8 +80,24 @@ public class WordpressService {
 
   private static final Pattern PATTERN_TARGET_WORDPRESS =
       Pattern.compile(
-          "wordpress.org\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
+          "wordpress.org(?:.*?)\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
           Pattern.CASE_INSENSITIVE);
+
+  @PostConstruct
+  public void checkConfig() throws BeanCreationException {
+    var dir = new File(CONFIG_DIR);
+    if (!dir.exists() || !dir.isDirectory())
+      throw new BeanCreationException("No wordpress config dir present in " + CONFIG_DIR);
+
+    var filenames =
+        new String[] {"docker-compose.yml", "start.sh", "setup.sh", ".env", "config/php.conf.ini"};
+
+    for (var filename : filenames) {
+      var file = new File(dir, filename);
+      if (!file.exists())
+        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
+    }
+  }
 
   /**
    * Method to generate configuration for the exploit related to <b>Wordpress</b>. The configuration
@@ -108,11 +125,36 @@ public class WordpressService {
     var target = matcherWordpress.group(2).trim();
 
     // Extract the version from title
-    final var matcher = PATTERN_VERSION.matcher(target);
-    if (!matcher.find())
-      throw new ExploitUnsupported("Version not present or pattern unkown: " + target);
+    var matcher = PATTERN_VERSION.matcher(target);
+    final String firstVersion;
+    final String secondVersion;
+    String entireVersion = "";
+
+    var find = matcher.find();
+    if (!find && isNotBlank(exploit.getVersion())) {
+      // Extract the version from Version in PoC
+      matcher = PATTERN_VERSION.matcher(exploit.getVersion());
+      find = matcher.find();
+    }
+
+    if (find) { // If there is a pattern version
+      entireVersion = matcher.group();
+      firstVersion = matcher.group(2);
+      secondVersion = matcher.group(4);
+    } else if (type != WordpressType.CORE
+        && isNotBlank(exploit.getFilenameVulnApp())) { // There is a vulnerable app for pluign/theme
+      firstVersion = null;
+      secondVersion = null;
+    } else
+      throw new ExploitUnsupported(
+          "Version unknown and no vulnerable app is present - Target = "
+              + target
+              + "  # Version = "
+              + exploit.getVersion());
 
     String product = null;
+    // Trying to extract the name of plugin/theme from software link or product link
+    // if they are related to wordpress.org
     if (isNotBlank(exploit.getSoftwareLink())) {
       var targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getSoftwareLink());
       if (targetMatcher.find()) product = targetMatcher.group(1);
@@ -121,40 +163,23 @@ public class WordpressService {
         if (targetMatcher.find()) product = targetMatcher.group(1);
       }
     }
-    // Remove the version
-    if (product == null) product = formatString(target.replace(matcher.group(), ""));
+
+    // If the product hasn't been found in the links, extract it from title removing the version and
+    // extracting
+    if (product == null) product = formatString(remove(target, entireVersion));
 
     String versionWordpress = null;
 
-    final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-    if (!exploitDir.exists() && !exploitDir.mkdirs())
-      throw new IOException("Impossible to create folder: " + exploitDir.getPath());
-
-    // Extract the main version
-    final var firstVersion = matcher.group(2);
+    final var exploitDir = createDir(EXPLOITS_DIR + "/" + exploit.getId());
 
     if (type == WordpressType.CORE) {
-      // Extract the different type of version
-      final var less = matcher.group(1);
-      final var slash = matcher.group(3);
-      final var secondVersion = matcher.group(4);
-      SearchTagVO.TagVO tag;
-
+      SearchTagVO.TagVO tag = null;
       try {
-        if (isBlank(less) && isNotBlank(firstVersion) && isBlank(slash))
-          tag = findTag(Version.parse(firstVersion));
-        else if (isNotBlank(firstVersion) && isNotBlank(slash) && isNotBlank(secondVersion)) {
-          // Search at first for the first version, if no tag found search for the second
-          tag = findTag(Version.parse(firstVersion));
-          if (tag == null) tag = findTag(Version.parse(secondVersion));
-
-        } else if (isNotBlank(less) && isNotBlank(firstVersion)) {
-          tag = findTag(Version.parse(firstVersion));
-          if (tag == null) {
-            // TODO: sistemare
-            log.info("Tag not found with version < {}", firstVersion);
-          }
-        } else throw new ExploitUnsupported("Combination of versions not supported");
+        if (isNotBlank(firstVersion)) tag = findTag(Version.parse(firstVersion));
+        if (tag == null && isNotBlank(secondVersion)) tag = findTag(Version.parse(secondVersion));
+        if (tag == null && isBlank(firstVersion) && isBlank(secondVersion))
+          throw new ExploitUnsupported(
+              "Combination of version not supported: " + exploit.getTitle());
       } catch (ParseException e) {
         log.warn(e.toString());
         throw new ExploitUnsupported(e);
@@ -166,12 +191,14 @@ public class WordpressService {
     } else {
       File typeDir;
 
-      typeDir = new File(exploitDir, "/" + type.name() + "s/" + product);
+      typeDir = new File(exploitDir, "/" + type.name().toLowerCase() + "s/" + product);
       if (!typeDir.exists() && !typeDir.mkdirs())
         throw new IOException("Impossible to create folder: " + typeDir.getPath());
-      var isCheckout = checkout(type, product, firstVersion, typeDir);
 
-      // if checkout is failed try with software link if exist
+      var isCheckout = false;
+      if (isNotBlank(firstVersion)) isCheckout = checkout(type, product, firstVersion, typeDir);
+
+      // If checkout failed try with software link if exist
       if (!isCheckout) {
         var downloaded = false;
         File zipFile = null;
@@ -179,15 +206,19 @@ public class WordpressService {
         // Try to download the zip file from software link
         if (isNotBlank(exploit.getSoftwareLink())
             && contains(exploit.getSoftwareLink(), product)
+            && isNotBlank(firstVersion)
             && contains(exploit.getSoftwareLink(), firstVersion)) {
 
-          log.debug("Trying to download it from Software link...");
+          log.debug("Trying to download it from Software link: {}", exploit.getSoftwareLink());
+
           zipFile = new File(exploitDir, product + ".zip");
           try {
-            FileUtils.copyURLToFile(new URL(exploit.getSoftwareLink()), zipFile);
-            log.debug("Download completed");
-            downloaded = true;
-          } catch (IOException e) {
+            // subs
+            copyURLToFile(exploit.getSoftwareLink(), zipFile);
+            downloaded = isNotEmpty(zipFile);
+            if (downloaded) log.debug("Download completed");
+            else log.warn("Zip file empty or corrupted");
+          } catch (Exception e) {
             log.warn("Error during downloading from software link");
           }
         }
@@ -206,7 +237,7 @@ public class WordpressService {
         }
 
         if (downloaded) {
-          extractZip(zipFile, typeDir);
+          decompress(zipFile, typeDir);
           var files = typeDir.listFiles();
           if (files != null && files.length == 1 && files[0].isDirectory()) {
             FileUtils.copyDirectory(files[0], typeDir);
@@ -245,44 +276,18 @@ public class WordpressService {
    * @throws IOException exception occurred during the request to dockerhub
    */
   private SearchTagVO.TagVO findTag(@NonNull Version version) throws IOException {
+    // Doesn't exist a docker image before 4.1.0
+    if (version.compareTo(Version.parse("4.1.0")) < 0) return null;
+
     final var cpe = new CPE("2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", version);
 
-    // Return all CPE that match the previous
-    final var cpes = systemCve2Docker.getCpes(cpe);
-    if (cpes == null || cpes.getResult().getCpes().isEmpty()) return null;
-
-    SearchTagVO.TagVO tag = null;
-
-    //  Cycle through all CPE until find a tag on dockerhub corresponding to the version
-    final var iterator = cpes.getResult().getCpes().iterator();
-    while (iterator.hasNext() && tag == null) {
-      var cpeMatchVO = iterator.next();
-      final var tags =
-          systemCve2Docker.searchTags(
-              cpe.getProduct(), cpeMatchVO.getCpe().getVersion().toString());
-
-      // Search for a tag with the exact name of the version
-      tag =
-          tags.stream()
-              .filter(
-                  _t ->
-                      cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).matches())
-              .findFirst()
-              .orElse(null);
-
-      // If not found, finding the FIRST repo with the containing name of the version
-      if (tag == null)
-        tag =
-            tags.stream()
-                .filter(
-                    _t ->
-                        cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find())
-                .findFirst()
-                .orElse(null);
-
-      if (tag != null && tag.getName().contains("cli")) tag = null;
-    }
-    return tag;
+    return systemCve2Docker.findTag(
+        cpe,
+        (_t, cpeMatchVO) ->
+            cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).matches(),
+        (_t, cpeMatchVO) ->
+            cpeMatchVO.getCpe().getVersion().getPattern().matcher(_t.getName()).find()
+                && !_t.getName().contains(("cli")));
   }
 
   /**

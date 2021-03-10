@@ -4,7 +4,7 @@ import com.lprevidente.cve2docker.entity.pojo.CPE;
 import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
 import com.lprevidente.cve2docker.entity.pojo.ExploitType;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
-import com.lprevidente.cve2docker.entity.vo.nist.SearchCpeVO;
+import com.lprevidente.cve2docker.entity.vo.nist.CpeMatchVO;
 import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import com.lprevidente.cve2docker.utility.Utils;
@@ -27,6 +27,8 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiPredicate;
 
 @Slf4j
 @Service
@@ -62,20 +64,33 @@ public class SystemCve2Docker {
    */
   public void genConfigurationFromExploit(@NonNull Long edbID, boolean removeConfig)
       throws ExploitUnsupported, IOException, ConfigurationException {
+    log.info(" --- Generation Request for edbID = {}  removeConfig = {} ---", edbID, removeConfig);
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(edbID);
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      e.printStackTrace();
+      log.warn("Retrying...");
+      try {
+        TimeUnit.MINUTES.sleep(1);
+        exploitDB = exploitDBService.getExploitDBFromSite(edbID);
+      } catch (Exception ignored) {
+      }
     }
 
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
 
     log.info("Exploit Found in ExploitDB");
-
-    if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name()))
+    var containsWordpress =
+        StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
+    var containsJoomla =
+        StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+    if (containsWordpress && !containsJoomla)
       wordpressService.genConfiguration(exploitDB, removeConfig);
-    else if (StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name()))
+    else if (containsJoomla && !containsWordpress)
       joomlaService.genConfiguration(exploitDB, removeConfig);
+    else if (containsJoomla && containsWordpress)
+      throw new ExploitUnsupported("CMS not unique. Reference to both WordPress and Joomla!");
     else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
       phpWebAppService.genConfiguration(exploitDB, removeConfig);
   }
@@ -102,8 +117,10 @@ public class SystemCve2Docker {
           CSVParser.parse(
               new URL(EXPLOITS_URL_GITHUB),
               StandardCharsets.UTF_8,
-              CSVFormat.DEFAULT.withHeader(
-                  "id", "file", "description", "date", "author", "type", "platform", "port"));
+              CSVFormat.RFC4180
+                  .withHeader(
+                      "id", "file", "description", "date", "author", "type", "platform", "port")
+                  .withDelimiter(','));
 
       // Open a File write to save the results
       FileWriter writer = new FileWriter("result_" + Utils.fromDateToString(new Date()) + ".csv");
@@ -120,10 +137,14 @@ public class SystemCve2Docker {
 
       while (iterator.hasNext()) {
         var record = iterator.next();
+
+        // Check if the description or platform contains the content of exploit type
         var matchType =
             types.stream()
                 .anyMatch(
-                    type -> StringUtils.containsIgnoreCase(record.get("description"), type.name()));
+                    type ->
+                        StringUtils.containsIgnoreCase(record.get("description"), type.name())
+                            || StringUtils.containsIgnoreCase(record.get("platform"), type.name()));
         if (!types.isEmpty() && !matchType) continue;
 
         var date = Utils.fromStringToDate(record.get("date"));
@@ -148,13 +169,15 @@ public class SystemCve2Docker {
               e.getMessage());
         }
         nTested++;
-        if (nTested % 10 == 0) {
-          log.debug("Cleaning docker networks");
-          Utils.executeShellCmd("docker network prune -f");
+        if (nTested % 10 == 0 && removeConfig) {
+          log.debug(
+              "Cleaning docker networks: {}", Utils.executeShellCmd("docker network prune -f"));
+          log.debug("Cleaning docker volumes: {}", Utils.executeShellCmd("docker volume prune -f"));
         }
       }
 
       exploits.close();
+      printer.flush();
       printer.close();
     } catch (IOException e) {
       log.error("Error reading exploit csv file from GitHub: {}", e.getMessage());
@@ -165,15 +188,44 @@ public class SystemCve2Docker {
     }
   }
 
-  /** Wrapper of {@link NistService#getCpes(CPE)} */
-  public SearchCpeVO getCpes(CPE cpe) throws IOException {
-    return nistService.getCpes(cpe);
-  }
+  /**
+   * Find a Docker Tag that is compatible with the cpe provided.
+   *
+   * @param cpe the cpe for with the tag should be found
+   * @param match function to find a tag with the exact name of the version
+   * @param contains function to find a tag that contains the string version
+   * @return null if no tag has been found.
+   * @throws IOException exception occurred during the request to dockerhub
+   */
+  public SearchTagVO.TagVO findTag(
+      @NonNull CPE cpe,
+      @NonNull BiPredicate<SearchTagVO.TagVO, CpeMatchVO> match,
+      @NonNull BiPredicate<SearchTagVO.TagVO, CpeMatchVO> contains)
+      throws IOException {
 
-  /** Wrapper of {@link DockerHubService#searchTags(String, String)} */
-  public List<SearchTagVO.TagVO> searchTags(String repoFullName, String text)
-      throws IllegalArgumentException {
-    return dockerHubService.searchTags(repoFullName, text);
+    // Return all CPE that match the previous
+    final var cpes = nistService.getCpes(cpe);
+    if (cpes == null || cpes.getResult().getCpes().isEmpty()) return null;
+
+    SearchTagVO.TagVO tag = null;
+
+    //  Cycle through all CPE until find a tag on dockerhub corresponding to the version
+    final var iterator = cpes.getResult().getCpes().iterator();
+
+    while (iterator.hasNext() && tag == null) {
+      var cpeMatchVO = iterator.next();
+
+      final var tags =
+          dockerHubService.searchTags(cpe.getVendor(), cpeMatchVO.getCpe().getVersion().toString());
+
+      // Search for a tag with the exact name of the version
+      tag = tags.stream().filter(_t -> match.test(_t, cpeMatchVO)).findFirst().orElse(null);
+
+      // If not found, finding the FIRST repo with the containing name
+      if (tag == null)
+        tag = tags.stream().filter(_t -> contains.test(_t, cpeMatchVO)).findFirst().orElse(null);
+    }
+    return tag;
   }
 
   /** Wrapper of {@link ExploitDBService#downloadVulnApp(String, File)} */

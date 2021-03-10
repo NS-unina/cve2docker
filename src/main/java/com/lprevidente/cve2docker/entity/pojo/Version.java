@@ -9,7 +9,7 @@ import org.springframework.expression.ParseException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.apache.commons.lang3.StringUtils.*;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 /**
  * The Version class can be used to parse a standard version string into its four components,
@@ -77,18 +77,9 @@ public class Version implements Comparable<Version> {
     this.major = toSet;
   }
 
-  /**
-   * Sets the version's MAJOR component.
-   *
-   * @param toSet The version's MAJOR component.
-   */
-  public void setMajor(int toSet) {
-    setMajor(String.valueOf(toSet));
-  }
-
   /** The version's MAJOR component as an integer. */
   private int getMajorAsInt() {
-    return Integer.parseInt(this.major);
+    return this.major.equals("*") ? 0 : Integer.parseInt(this.major);
   }
 
   /**
@@ -108,23 +99,14 @@ public class Version implements Comparable<Version> {
     this.minor = toSet;
   }
 
-  /**
-   * Sets the version's MINOR component.
-   *
-   * @param toSet The version's MINOR component.
-   */
-  public void setMinor(int toSet) {
-    setMinor(String.valueOf(toSet));
-  }
-
-  /** The version's MINOR component as an integer. */
+  /** The version's MINOR component as an integer, if * result is 0. */
   private int getMinorAsInt() {
-    return Integer.parseInt(this.minor);
+    return this.minor.equals("*") ? 0 : Integer.parseInt(this.minor);
   }
 
   /** The version's BUILD component as an integer. */
   private int getBuildAsInt() {
-    return Integer.parseInt(this.build);
+    return this.build.equals("*") ? 0 : Integer.parseInt(this.build);
   }
 
   /**
@@ -155,7 +137,7 @@ public class Version implements Comparable<Version> {
 
   /** The version's REVISION component as an integer. */
   private int getRevisionAsInt() {
-    return Integer.parseInt(this.revision);
+    return this.revision.equals("*") ? 0 : Integer.parseInt(this.revision);
   }
 
   /**
@@ -173,15 +155,6 @@ public class Version implements Comparable<Version> {
     if (this.numberOfComponents < 4) this.numberOfComponents = 4;
 
     this.revision = toSet;
-  }
-
-  /**
-   * Sets the version's REVISION component.
-   *
-   * @param toSet The version's REVISION component.
-   */
-  public void setRevision(int toSet) {
-    setRevision(String.valueOf(toSet));
   }
 
   @Override
