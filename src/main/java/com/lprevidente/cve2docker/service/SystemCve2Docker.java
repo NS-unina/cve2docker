@@ -81,8 +81,10 @@ public class SystemCve2Docker {
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
 
     log.info("Exploit Found in ExploitDB");
-    var containsWordpress = StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
-    var containsJoomla = StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+    var containsWordpress =
+        StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
+    var containsJoomla =
+        StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
     if (containsWordpress && !containsJoomla)
       wordpressService.genConfiguration(exploitDB, removeConfig);
     else if (containsJoomla && !containsWordpress)
@@ -115,8 +117,10 @@ public class SystemCve2Docker {
           CSVParser.parse(
               new URL(EXPLOITS_URL_GITHUB),
               StandardCharsets.UTF_8,
-              CSVFormat.RFC4180.withHeader(
-                  "id", "file", "description", "date", "author", "type", "platform", "port").withDelimiter(','));
+              CSVFormat.RFC4180
+                  .withHeader(
+                      "id", "file", "description", "date", "author", "type", "platform", "port")
+                  .withDelimiter(','));
 
       // Open a File write to save the results
       FileWriter writer = new FileWriter("result_" + Utils.fromDateToString(new Date()) + ".csv");
@@ -165,9 +169,10 @@ public class SystemCve2Docker {
               e.getMessage());
         }
         nTested++;
-        if (nTested % 10 == 0) {
-          log.debug("Cleaning docker networks");
-          Utils.executeShellCmd("docker network prune -f");
+        if (nTested % 10 == 0 && removeConfig) {
+          log.debug(
+              "Cleaning docker networks: {}", Utils.executeShellCmd("docker network prune -f"));
+          log.debug("Cleaning docker volumes: {}", Utils.executeShellCmd("docker volume prune -f"));
         }
       }
 
@@ -211,8 +216,7 @@ public class SystemCve2Docker {
       var cpeMatchVO = iterator.next();
 
       final var tags =
-          dockerHubService.searchTags(
-              cpe.getVendor(), cpeMatchVO.getCpe().getVersion().toString());
+          dockerHubService.searchTags(cpe.getVendor(), cpeMatchVO.getCpe().getVersion().toString());
 
       // Search for a tag with the exact name of the version
       tag = tags.stream().filter(_t -> match.test(_t, cpeMatchVO)).findFirst().orElse(null);
