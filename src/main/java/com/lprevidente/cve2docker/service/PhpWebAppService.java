@@ -46,8 +46,6 @@ public class PhpWebAppService {
   @Value("${spring.config.php-webapp.config-dir}")
   private String CONFIG_DIR;
 
-  private final Long MAX_TIME_TEST;
-
   // To download directly the zip file from sourcecodester
   private static final String PATH_DOWNLOAD_SOURCECODESTER = "/sites/default/files/download";
 
@@ -56,32 +54,16 @@ public class PhpWebAppService {
 
   private static final Pattern PATTERN_DB_NAME = compile("Database:\\s`(.*)`", CASE_INSENSITIVE);
 
+  private static final String[] filenames =
+      new String[] {
+        "docker-compose.yml", "start.sh", ".env", "config/php/php.ini", "config/vhosts/default.conf"
+      };
+
+  private final Long MAX_TIME_TEST;
+
   public PhpWebAppService(
       @Value("${spring.config.wordpress.max-time-test}") Integer MAX_TIME_TEST) {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
-  }
-
-  @PostConstruct
-  public void checkConfig() throws BeanCreationException {
-    var dir = new File(CONFIG_DIR);
-
-    if (!dir.exists() || !dir.isDirectory())
-      throw new BeanCreationException("No Joomla! config dir present in " + CONFIG_DIR);
-
-    var filenames =
-        new String[] {
-            "docker-compose.yml",
-            "start.sh",
-            ".env",
-            "config/php/php.ini",
-            "config/vhosts/default.conf"
-        };
-
-    for (var filename : filenames) {
-      var file = new File(dir, filename);
-      if (!file.exists())
-        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
-    }
   }
 
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
@@ -218,7 +200,7 @@ public class PhpWebAppService {
       throw new ConfigurationException("No project in the www folder");
 
     if (files.length != 1) // TODO: creare una cartella contenitore?
-      throw new ConfigurationException(
+    throw new ConfigurationException(
           "More than one file in the www folder. There should be only one directory");
 
     var file = new File(www, Utils.formatString(files[0].getName()));
@@ -242,7 +224,7 @@ public class PhpWebAppService {
 
   private void copyContent(@NonNull File baseDir) throws IOException, ConfigurationException {
 
-    FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
+    // ConfigurationUtils.copyDirectory(CONFIG_DIR, baseDir);
 
     File sql = findDump(baseDir);
 
@@ -275,8 +257,8 @@ public class PhpWebAppService {
         contentEnv += "\nDUMP_NAME=" + FilenameUtils.removeExtension(sql.getName());
 
         final var confMySQLDir = new File(baseDir, "config/mysql/");
-        if(!confMySQLDir.exists() && !confMySQLDir.mkdirs())
-          throw new IOException("Impossible to create folder: "+confMySQLDir.getPath());
+        if (!confMySQLDir.exists() && !confMySQLDir.mkdirs())
+          throw new IOException("Impossible to create folder: " + confMySQLDir.getPath());
 
         FileUtils.moveFileToDirectory(sql, confMySQLDir, false);
 

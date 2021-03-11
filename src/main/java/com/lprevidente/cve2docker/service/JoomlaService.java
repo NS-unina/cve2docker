@@ -14,6 +14,7 @@ import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,8 @@ import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -53,35 +56,19 @@ public class JoomlaService {
           "Joomla!?\\s(?:Core\\s)?(<(?:\\s))?(\\d(?:\\.[\\d|x]+)(?:\\.[\\d|x]+)?)(?:\\s)?(\\/|<)?(?:\\s)?(\\d(?:\\.[\\d|x]+)(?:\\.[\\d|x])?)?\\s-",
           Pattern.CASE_INSENSITIVE);
 
+  private final String[] filenames =
+      new String[] {
+        "start.sh",
+        "setup.sh",
+        "config/mysql/init.sql",
+        "config/joomla/configuration.php",
+        "config/joomla/install-joomla-extension.php"
+      };
+
   private final Long MAX_TIME_TEST;
 
   public JoomlaService(@Value("${spring.config.joomla.max-time-test}") Integer MAX_TIME_TEST) {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
-  }
-
-  @PostConstruct
-  public void checkConfig() throws BeanCreationException {
-    var dir = new File(CONFIG_DIR);
-
-    if (!dir.exists() || !dir.isDirectory())
-      throw new BeanCreationException("No Joomla! config dir present in " + CONFIG_DIR);
-
-    var filenames =
-        new String[] {
-          "docker-compose.yml",
-          "start.sh",
-          "setup.sh",
-          ".env",
-          "config/mysql/init.sql",
-          "config/joomla/configuration.php",
-          "config/joomla/install-joomla-extension.php"
-        };
-
-    for (var filename : filenames) {
-      var file = new File(dir, filename);
-      if (!file.exists())
-        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
-    }
   }
 
   /**
@@ -159,6 +146,7 @@ public class JoomlaService {
         exploitDir, ENDPOINT_TO_TEST, MAX_TIME_TEST, removeConfig, cmdSetup);
 
     log.info("Container configured correctly!");
+    cleanDirectory(exploitDir);
   }
 
   /**
@@ -169,8 +157,7 @@ public class JoomlaService {
    * @throws IOException exception occurred during the request to dockerhub
    */
   private SearchTagVO.TagVO findTag(@NonNull Version version) throws IOException {
-    if(version.getNumberOfComponents() < 3)
-      version.setNumberOfComponents(3);
+    if (version.getNumberOfComponents() < 3) version.setNumberOfComponents(3);
     // Doesn't exist a docker image before 3.4
     if (version.compareTo(Version.parse("3.4.0")) < 0) return null;
 
@@ -198,20 +185,21 @@ public class JoomlaService {
       @NonNull File baseDir, @NonNull JoomlaType type, String component, String version)
       throws IOException {
 
-    if (!baseDir.isDirectory()) throw new IOException("The baseDir provided is not a directory");
-
-    FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
+    ConfigurationUtils.copyFiles(CONFIG_DIR, baseDir, filenames);
 
     // Copy the env file and append the component name
     var env = new File(baseDir, ".env");
-    var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
+    var contentEnv =
+        IOUtils.toString(ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/.env"));
 
     //  Read Docker-compose
     final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
 
     ObjectMapper om = new ObjectMapper(yamlFactory);
     final var dockerCompose =
-        om.readValue(new File(baseDir, "docker-compose.yml"), DockerCompose.class);
+        om.readValue(
+            ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/docker-compose.yml"),
+            DockerCompose.class);
 
     switch (type) {
       case CORE:
@@ -229,5 +217,32 @@ public class JoomlaService {
 
     write(env, contentEnv, StandardCharsets.UTF_8);
     om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
+  }
+
+  public void cleanDirectory(@NonNull File exploitDir) throws IOException {
+    // Remove files
+    FileUtils.deleteDirectory(new File(exploitDir, "config/mysql"));
+    FileUtils.forceDelete(new File(exploitDir, "config/joomla/install-joomla-extension.php"));
+    FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
+    FileUtils.forceDelete(new File(exploitDir, "start.sh"));
+    FileUtils.deleteDirectory(new File(exploitDir, "component"));
+
+    final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
+
+    // Remove directory and files also from docker-compose
+    ObjectMapper om = new ObjectMapper(yamlFactory);
+    final var dockerCompose =
+        om.readValue(new File(exploitDir, "docker-compose.yml"), DockerCompose.class);
+
+    dockerCompose
+        .getServices()
+        .get("joomla")
+        .getVolumes()
+        .removeIf(
+            volume ->
+                volume.contains("joomla/mysql")
+                    || volume.contains("install-joomla-extension.php")
+                    || volume.contains("./component/"));
+    om.writeValue(new File(exploitDir, "docker-compose.yml"), dockerCompose);
   }
 }

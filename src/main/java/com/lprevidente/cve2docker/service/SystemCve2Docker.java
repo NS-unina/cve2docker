@@ -89,7 +89,7 @@ public class SystemCve2Docker {
       wordpressService.genConfiguration(exploitDB, removeConfig);
     else if (containsJoomla && !containsWordpress)
       joomlaService.genConfiguration(exploitDB, removeConfig);
-    else if (containsJoomla && containsWordpress)
+    else if (containsJoomla)
       throw new ExploitUnsupported("CMS not unique. Reference to both WordPress and Joomla!");
     else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
       phpWebAppService.genConfiguration(exploitDB, removeConfig);

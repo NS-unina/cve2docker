@@ -27,6 +27,7 @@ public class WordpressServiceTest extends TestBase {
     FileUtils.deleteDirectory(dir);
 
     assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -41,6 +42,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=form-maker"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -55,6 +57,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=wp-paginate"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -69,6 +72,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=wp-colorbox"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -112,6 +116,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("THEME_NAME=fruitful"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -127,6 +132,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("THEME_NAME=beauty-&-clean"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Wordpress <i>Core</i> with Software Link, but this should not be used. */
@@ -139,6 +145,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=5.2.4"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Wordpress <i>Core</i> with 2 versions 4.7.0/4.7.1. */
@@ -151,5 +158,6 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=4.7.1"));
+    FileUtils.deleteDirectory(dir);
   }
 }

@@ -91,6 +91,7 @@ public class CommandLineExecutor implements CommandLineRunner {
             }
             if (ok) system.genConfigurations(startDate, endDate, removeConfig, types);
           } catch (Exception e) {
+            e.printStackTrace();
             log.error("Error: {}", e.getMessage());
           }
           break;

@@ -13,8 +13,8 @@ import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ParseException;
@@ -28,7 +28,6 @@ import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
-import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -37,13 +36,14 @@ import java.util.regex.Pattern;
 
 import static com.lprevidente.cve2docker.utility.Utils.isNotEmpty;
 import static com.lprevidente.cve2docker.utility.Utils.*;
-import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.*;
 
 @Service
 @Slf4j
 public class WordpressService {
+
+  @Autowired private SystemCve2Docker systemCve2Docker;
 
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
@@ -60,18 +60,9 @@ public class WordpressService {
   @Value("${spring.config.wordpress.svn-base-url.theme}")
   private String BASE_URL_SVN_THEME;
 
-  private final Long MAX_TIME_TEST;
-
-  @Autowired private SystemCve2Docker systemCve2Docker;
-
-  public WordpressService(
-      @Value("${spring.config.wordpress.max-time-test}") Integer MAX_TIME_TEST) {
-    this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
-  }
-
   private static final Pattern PATTERN_VERSION =
       Pattern.compile(
-          "(<(?:\\s))?(\\d(?:[.][\\d+|x]+)(?:[.][\\d|x]+)?)(\\/)?(\\d(?:[.][\\d|x]+)?(?:[.][\\d|x])?)?",
+          "(<(?:\\s))?(\\d(?:[.][\\d+|x]+)(?:[.][\\d|x]+)?)(/)?(\\d(?:[.][\\d|x]+)?(?:[.][\\d|x])?)?",
           Pattern.CASE_INSENSITIVE);
 
   private static final Pattern PATTERN_WORDPRESS =
@@ -80,25 +71,17 @@ public class WordpressService {
 
   private static final Pattern PATTERN_TARGET_WORDPRESS =
       Pattern.compile(
-          "wordpress.org(?:.*?)\\/(?:plugins|plugin|theme|themes)?\\/(.*?)(?:[\\.|\\/])",
+          "wordpress.org(?:.*?)/(?:plugins|plugin|theme|themes)?/(.*?)(?:[.|/])",
           Pattern.CASE_INSENSITIVE);
 
-  @PostConstruct
-  public void checkConfig() throws BeanCreationException {
-    var dir = new File(CONFIG_DIR);
-    if (!dir.exists() || !dir.isDirectory())
-      throw new BeanCreationException("No wordpress config dir present in " + CONFIG_DIR);
+  private static final String[] filenames = new String[] {"start.sh", "setup.sh"};
 
-    var filenames =
-        new String[] {"docker-compose.yml", "start.sh", "setup.sh", ".env", "config/php.conf.ini"};
+  private final Long MAX_TIME_TEST;
 
-    for (var filename : filenames) {
-      var file = new File(dir, filename);
-      if (!file.exists())
-        throw new BeanCreationException("No " + file.getName() + " present in " + CONFIG_DIR);
-    }
+  public WordpressService(
+      @Value("${spring.config.wordpress.max-time-test}") Integer MAX_TIME_TEST) {
+    this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
-
   /**
    * Method to generate configuration for the exploit related to <b>Wordpress</b>. The configuration
    * consist in docker-compose, env file e other files depending on the exploit type.
@@ -266,6 +249,7 @@ public class WordpressService {
 
     // setupConfiguration(exploitDir, type, product);
     log.info("Container configured correctly!");
+    cleanDirectory(exploitDir);
   }
 
   /**
@@ -307,18 +291,22 @@ public class WordpressService {
       @NonNull File baseDir, @NonNull WordpressType type, String product, String version)
       throws IOException {
 
-    FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
+    // FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
+    ConfigurationUtils.copyFiles(CONFIG_DIR, baseDir, filenames);
 
     // Copy the env file and append the plugin or theme name
     var env = new File(baseDir, ".env");
-    var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
+    var contentEnv =
+        IOUtils.toString(ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/.env"));
 
     //  Read Docker-compose
     final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
 
     ObjectMapper om = new ObjectMapper(yamlFactory);
     final var dockerCompose =
-        om.readValue(new File(baseDir, "docker-compose.yml"), DockerCompose.class);
+        om.readValue(
+            ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/docker-compose.yml"),
+            DockerCompose.class);
 
     switch (type) {
       case CORE:
@@ -409,5 +397,11 @@ public class WordpressService {
       log.warn("[checkout] Unable to checkout: " + e.getMessage());
       return false;
     }
+  }
+
+  public void cleanDirectory(@NonNull File exploitDir) throws IOException {
+    // Remove files
+    FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
+    FileUtils.forceDelete(new File(exploitDir, "start.sh"));
   }
 }

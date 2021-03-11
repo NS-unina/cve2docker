@@ -1,7 +1,7 @@
 spring:
   config:
     exploits-url-github: https://raw.githubusercontent.com/offensive-security/exploitdb/master/files_exploits.csv
-    exploits-dir: ./content/generated
+    exploits-dir: ./exploits
     dockerhub:
       base-url: https://hub.docker.com
       max-page-size: 100
@@ -13,18 +13,18 @@ spring:
       plugin-svn: https://plugins.svn.wordpress.org
       theme-svn: https://themes.svn.wordpress.org
       max-time-test: 2 # min
-      config-dir: ./content/wordpress
+      config-dir: wordpress
       endpoint-to-test: http://localhost/wp-admin/install.php
       svn-baseurl:
         plugin: https://plugins.svn.wordpress.org/
         theme: https://themes.svn.wordpress.org/
     joomla:
       max-time-test: 2 # min
-      config-dir: ./content/joomla
+      config-dir: joomla
       endpoint-to-test: http://localhost/installation/index.php
     php-webapp:
       max-time-test: 2 # min
-      config-dir: ./content/php-webapp
+      config-dir: php-webapp
 
 
 logging:

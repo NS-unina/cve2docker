@@ -30,6 +30,7 @@ public class JoomlaServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("COMPONENT_NAME=b8df21a9bed50ce4ee1681e0077e3b5d-jsjobs.zip"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Joomla <i>Component</i> Easy Shop with VulnApp. */
@@ -44,6 +45,7 @@ public class JoomlaServiceTest extends TestBase {
     assertTrue(
         envContent.contains(
             "COMPONENT_NAME=cba36c9f7233ca178bc62bf0bd41115d-com_easyshop-v1.2.3.zip"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Joomla <i>Component</i> Proclaim with VulnApp. */
@@ -57,6 +59,7 @@ public class JoomlaServiceTest extends TestBase {
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(
         envContent.contains("COMPONENT_NAME=6ac663f3794ba28f8c736c2881e44b1e-pkg_proclaim.zip"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Joomla <i>Component</i> Google Map Landkarten with VulnApp. */
@@ -70,6 +73,7 @@ public class JoomlaServiceTest extends TestBase {
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(
         envContent.contains("COMPONENT_NAME=75b746a6c5cf1caa4aa1348f19247562-com_gmap_4.2.3.zip"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Joomla <i>Component</i> no VulnApp. */
@@ -92,6 +96,7 @@ public class JoomlaServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("JOOMLA_VERSION=3.6.4"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Joomla <i>Core - 2.5.2</i> with NO Docker image. */
@@ -114,5 +119,6 @@ public class JoomlaServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("JOOMLA_VERSION=3.9.1"));
+    FileUtils.deleteDirectory(dir);
   }
 }
