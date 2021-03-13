@@ -234,6 +234,23 @@ public class Utils {
     }
   }
 
+  public static String getLocationMoved(@NonNull String url) throws IOException {
+    try {
+      var client = HttpClient.newHttpClient();
+      var request =
+          HttpRequest.newBuilder(new URI(url))
+              .method("HEAD", HttpRequest.BodyPublishers.noBody())
+              .build();
+      final var response = client.send(request, HttpResponse.BodyHandlers.discarding());
+
+      if (response.statusCode() == 301 || response.statusCode() == 302)
+        url = response.headers().map().get("Location").get(0);
+      return url;
+    } catch (URISyntaxException | InterruptedException e) {
+      throw new IOException("Error during validation");
+    }
+  }
+
   /**
    * Format the input string replacing the space or : with -, removing the . (dots) and convert all
    * the characters in to lower case

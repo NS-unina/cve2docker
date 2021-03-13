@@ -11,14 +11,13 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -29,11 +28,9 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static com.lprevidente.cve2docker.utility.Utils.copyURLToFile;
-import static com.lprevidente.cve2docker.utility.Utils.decompress;
+import static com.lprevidente.cve2docker.utility.Utils.*;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 import static java.util.regex.Pattern.compile;
-import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 
 @Service
@@ -50,7 +47,7 @@ public class PhpWebAppService {
   private static final String PATH_DOWNLOAD_SOURCECODESTER = "/sites/default/files/download";
 
   private static final Pattern PATTNER_PAGE_SOUCECODESTER =
-      Pattern.compile("(?:.*)\\/([0-9]*)\\/(.*).html", CASE_INSENSITIVE);
+      Pattern.compile("(?:.*)/([0-9]*)/(.*).html", CASE_INSENSITIVE);
 
   private static final Pattern PATTERN_DB_NAME = compile("Database:\\s`(.*)`", CASE_INSENSITIVE);
 
@@ -80,8 +77,6 @@ public class PhpWebAppService {
           "Software link related to phpgurukul.  Trying to extract the download link for the zip file");
       link = extractDownloadLinkPhpGuruKul(exploit.getSoftwareLink());
     } else throw new ExploitUnsupported("Software link unknown: " + exploit.getSoftwareLink());
-
-    // TODO: Product HomePage?
 
     if (Objects.nonNull(link)) {
       final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
@@ -121,9 +116,8 @@ public class PhpWebAppService {
         ConfigurationUtils.setupConfiguration(
             exploitDir, endpoint, MAX_TIME_TEST, removeConfig, (String[]) null);
 
-        // setupConfiguration(exploitDir, type, product);
+        cleanDirectory(exploitDir);
         log.info("Container configured correctly! Run container and go to: " + endpoint);
-
       } else throw new ConfigurationException("No index.php found");
 
     } else throw new ExploitUnsupported("No source code found for the exploit");
@@ -177,7 +171,7 @@ public class PhpWebAppService {
                   element ->
                       element.attr("href").contains("https://phpgurukul.com/?smd_process_download"))
               .findFirst();
-      if (href.isPresent()) link = href.get().attr("href");
+      if (href.isPresent()) link = getLocationMoved(href.get().attr("href"));
     } catch (IOException e) {
       log.error(
           "Error extracting the download link form sourcecodester - Software link {} - Error: {}",
@@ -224,21 +218,24 @@ public class PhpWebAppService {
 
   private void copyContent(@NonNull File baseDir) throws IOException, ConfigurationException {
 
-    // ConfigurationUtils.copyDirectory(CONFIG_DIR, baseDir);
+    ConfigurationUtils.copyFiles(CONFIG_DIR, baseDir, filenames);
 
     File sql = findDump(baseDir);
 
     if (Objects.nonNull(sql)) { // IF a dump has been found
       // Copy the env file and append the webapp name
       final var env = new File(baseDir, ".env");
-      var contentEnv = readFileToString(env, StandardCharsets.UTF_8);
+      var contentEnv =
+          IOUtils.toString(ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/.env"));
 
       //  Read Docker-compose
       final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
 
       ObjectMapper om = new ObjectMapper(yamlFactory);
       final var dockerCompose =
-          om.readValue(new File(baseDir, "docker-compose.yml"), DockerCompose.class);
+          om.readValue(
+              ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/docker-compose.yml"),
+              DockerCompose.class);
 
       dockerCompose
           .getServices()
@@ -266,5 +263,11 @@ public class PhpWebAppService {
         om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
       } else log.warn("No database name found");
     }
+  }
+
+  public void cleanDirectory(@NonNull File exploitDir) throws IOException {
+    // Remove files
+    // FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
+    FileUtils.forceDelete(new File(exploitDir, "start.sh"));
   }
 }
