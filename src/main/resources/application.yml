@@ -1,4 +1,11 @@
 spring:
+  main:
+    log-startup-info: false
+  output:
+    ansi:
+      enabled: always
+  banner:
+    location: banner.txt
   config:
     exploits-url-github: https://raw.githubusercontent.com/offensive-security/exploitdb/master/files_exploits.csv
     exploits-dir: ./exploits
