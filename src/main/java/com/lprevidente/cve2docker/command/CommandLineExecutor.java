@@ -1,8 +1,9 @@
-package com.lprevidente.cve2docker;
+package com.lprevidente.cve2docker.command;
 
 import com.lprevidente.cve2docker.command.EdbIDOption;
 import com.lprevidente.cve2docker.command.GenAllOption;
 import com.lprevidente.cve2docker.entity.pojo.ExploitType;
+import com.lprevidente.cve2docker.exception.GenerationException;
 import com.lprevidente.cve2docker.service.SystemCve2Docker;
 import com.lprevidente.cve2docker.utility.Utils;
 import lombok.extern.slf4j.Slf4j;
@@ -63,12 +64,11 @@ public class CommandLineExecutor implements CommandLineRunner {
       if (cmd.hasOption("id")) {
         for (String id : cmd.getOptionValues("id")) {
           try {
-            log.info(" --- Generation Request for edbID = {} ---", id);
             system.genConfigurationFromExploit(Long.parseLong(id), false);
           } catch (NumberFormatException e) {
             log.error("The id provided is not a number. Skipping it!");
-          } catch (Exception e) {
-            log.error(e.getMessage());
+          } catch (GenerationException e) {
+            log.error("[{}] {}", e.getClass().getSimpleName(), e.getMessage());
           }
         }
       } else if (cmd.hasOption("a")) {
@@ -89,12 +89,6 @@ public class CommandLineExecutor implements CommandLineRunner {
               log.error("Exploit Type Unknown: {} - Ignoring it", type);
             }
           }
-          log.info(
-              "Start date: {} - endDate:{} - removeCofing: {} - types: {}",
-              startDate,
-              endDate,
-              removeConfig,
-              types);
 
           // Check the dates
           if (Objects.nonNull(startDate)
@@ -102,10 +96,8 @@ public class CommandLineExecutor implements CommandLineRunner {
               && !startDate.before(endDate)) {
             log.error("Start Date is after the End Date");
             System.exit(1);
-          } else {
-            system.genConfigurations(startDate, endDate, removeConfig, types);
-            System.exit(0);
-          }
+          } else system.genConfigurations(startDate, endDate, removeConfig, types);
+
         } catch (MissingArgumentException e) {
           log.error(e.getMessage());
         } catch (ParseException e) {
@@ -115,7 +107,6 @@ public class CommandLineExecutor implements CommandLineRunner {
         }
       } else {
         formatter.printHelp("Commands", opts);
-        System.exit(0);
       }
     } catch (MissingArgumentException e) {
       log.error(e.getMessage());
@@ -124,5 +115,6 @@ public class CommandLineExecutor implements CommandLineRunner {
       formatter.printHelp("Commands", opts);
       System.exit(1);
     }
+    System.exit(0);
   }
 }

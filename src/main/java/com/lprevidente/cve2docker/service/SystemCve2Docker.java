@@ -5,8 +5,8 @@ import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
 import com.lprevidente.cve2docker.entity.pojo.ExploitType;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.entity.vo.nist.CpeMatchVO;
-import com.lprevidente.cve2docker.exception.ConfigurationException;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.exception.GenerationException;
 import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
+
+import static org.apache.commons.lang3.StringUtils.containsIgnoreCase;
 
 @Slf4j
 @Service
@@ -57,19 +59,14 @@ public class SystemCve2Docker {
    *
    * @param edbID not null
    * @param removeConfig if true the configuration will be removed after it has been setup.
-   * @throws ExploitUnsupported throws when there is no possibility to generate the configuration.
-   * @throws IOException throw when there is a problem with I/O operation
-   * @throws ConfigurationException throws when there is a problem during the setup or test of the
-   *     configuration.
    */
   public void genConfigurationFromExploit(@NonNull Long edbID, boolean removeConfig)
-      throws ExploitUnsupported, IOException, ConfigurationException {
-
+      throws GenerationException {
+    log.info(" --- START Generation Request for edbID = {} ---", edbID);
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(edbID);
     } catch (Exception e) {
-      e.printStackTrace();
       log.warn("Retrying...");
       try {
         TimeUnit.MINUTES.sleep(1);
@@ -80,11 +77,11 @@ public class SystemCve2Docker {
 
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
 
-    log.info("Exploit Found in ExploitDB");
     var containsWordpress =
         StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
     var containsJoomla =
         StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+
     if (containsWordpress && !containsJoomla)
       wordpressService.genConfiguration(exploitDB, removeConfig);
     else if (containsJoomla && !containsWordpress)
@@ -93,8 +90,7 @@ public class SystemCve2Docker {
       throw new ExploitUnsupported("CMS not unique. Reference to both WordPress and Joomla!");
     else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
       phpWebAppService.genConfiguration(exploitDB, removeConfig);
-    else
-      log.warn("Exploit type Unknown");
+    else throw new ExploitUnsupported("Exploit type Unknown");
   }
 
   /**
@@ -105,9 +101,10 @@ public class SystemCve2Docker {
    * <p>in addition to configurations, the method saves the result of the generation process in a
    * csv file, named result.csv.
    *
-   * @param startDate the date <i>after</i> which the exploit has been published
-   * @param endDate the date <i>before</i> which the exploit has been published
-   * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @param startDate The date <b>included</b> <i>after</i> which the exploit has been published
+   * @param endDate The date <b>included</b> <i>before</i> which the exploit has been published
+   * @param removeConfig If true remove the container after it has been tested, with the volumes
+   *     associated to it
    * @param types the list of all types of exploits for which a configuration must be generated
    */
   public void genConfigurations(
@@ -133,7 +130,6 @@ public class SystemCve2Docker {
               CSVFormat.DEFAULT.withHeader(
                   "id", "description", "date", "result", "error description"));
 
-      var nTested = 0;
       final var iterator = exploits.iterator();
       iterator.next();
 
@@ -145,8 +141,8 @@ public class SystemCve2Docker {
             types.stream()
                 .anyMatch(
                     type ->
-                        StringUtils.containsIgnoreCase(record.get("description"), type.name())
-                            || StringUtils.containsIgnoreCase(record.get("platform"), type.name()));
+                        containsIgnoreCase(record.get("description"), type.name())
+                            || containsIgnoreCase(record.get("platform"), type.name()));
         if (!types.isEmpty() && !matchType) continue;
 
         var date = Utils.fromStringToDate(record.get("date"));
@@ -158,24 +154,17 @@ public class SystemCve2Docker {
         if (Objects.nonNull(endDate) && date.after(endDate)) continue;
 
         try {
-          log.info(" --- Generation Request for edbID = {} ---", record.get("id"));
           genConfigurationFromExploit(Long.parseLong(record.get("id")), removeConfig);
           printer.printRecord(
               record.get("id"), record.get("description"), record.get("date"), "SUCCESS", "");
-        } catch (Exception e) {
-          log.warn(e.getMessage());
+        } catch (GenerationException e) {
+          log.error("[{}] {}", e.getClass().getSimpleName(), e.getMessage());
           printer.printRecord(
               record.get("id"),
               record.get("description"),
               record.get("date"),
               "ERROR",
-              e.getMessage());
-        }
-        nTested++;
-        if (nTested % 10 == 0 && removeConfig) {
-          log.debug(
-              "Cleaning docker networks: {}", Utils.executeShellCmd("docker network prune -f"));
-          log.debug("Cleaning docker volumes: {}", Utils.executeShellCmd("docker volume prune -f"));
+              "[" + e.getClass().getSimpleName() + "] " + e.getMessage());
         }
       }
 
@@ -184,8 +173,6 @@ public class SystemCve2Docker {
       printer.close();
     } catch (IOException e) {
       log.error("Error reading exploit csv file from GitHub: {}", e.getMessage());
-    } catch (InterruptedException e) {
-      log.error("Error during the network prune of docker {}", e.getMessage());
     } catch (ParseException e) {
       log.error("Error parsing date {}", e.getMessage());
     }

@@ -7,8 +7,7 @@ import com.lprevidente.cve2docker.entity.pojo.JoomlaType;
 import com.lprevidente.cve2docker.entity.pojo.Version;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
-import com.lprevidente.cve2docker.exception.ConfigurationException;
-import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.exception.*;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
@@ -27,10 +26,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static com.lprevidente.cve2docker.entity.pojo.JoomlaType.CORE;
+import static com.lprevidente.cve2docker.utility.Utils.isNotEmpty;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -79,74 +80,92 @@ public class JoomlaService {
    *
    * @param exploit not null
    * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @throws ParseExploitException throws when it is not possible to extrapolate the type or version
+   *     of the exploit
+   * @throws ImageNotFoundException throws when there is no image related to joomla core
+   * @throws NoVulnerableAppException throws when there isn't a vulnerable app for the exploit
    * @throws ExploitUnsupported throws when there is no possibility to generate the configuration.
-   * @throws IOException throw when there is a problem with I/O operation
    * @throws ConfigurationException throws when there is a problem during the setup or test of the
    *     configuration.
    */
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
-      throws ExploitUnsupported, IOException, ConfigurationException {
+      throws GenerationException {
     log.info("Generating configuration for Joomla Exploit");
 
     String versionJoomla = null;
-    File exploitDir;
+    File exploitDir = null;
     JoomlaType type;
 
     // First check if it is related to Joomla Core
     final var matcher = PATTERN_CORE_JOOMLA.matcher(exploit.getTitle());
+    try {
+      exploitDir = Utils.createDir(EXPLOITS_DIR + "/" + exploit.getId());
 
-    if (matcher.find()) {
-      type = CORE;
-      // Extracting the versions
-      //  final var less = matcher.group(1);
-      final var firstVersion = matcher.group(2);
-      // final var separator = matcher.group(3); // / or <
-      final var secondVersion = matcher.group(4);
+      if (matcher.find()) {
+        type = CORE;
+        // Extracting the versions
+        //  final var less = matcher.group(1);
+        final var firstVersion = matcher.group(2);
+        // final var separator = matcher.group(3); // / or <
+        final var secondVersion = matcher.group(4);
 
-      SearchTagVO.TagVO tag = null;
-      try {
+        SearchTagVO.TagVO tag = null;
+
+        // Search a WordPress image with a version equal to the first Version
         if (isNotBlank(firstVersion)) tag = findTag(Version.parse(firstVersion));
+
+        // If no tag has been found, then search with the second Version
         if (tag == null && isNotBlank(secondVersion)) tag = findTag(Version.parse(secondVersion));
+
+        // If no tag has been found and there is no first and second version, throw an error.
         if (tag == null && isBlank(firstVersion) && isBlank(secondVersion))
-          throw new ExploitUnsupported(
-              "Combination of version not supported: " + exploit.getTitle());
-      } catch (ParseException e) {
-        log.warn(e.toString());
-        throw new ExploitUnsupported(e);
+          throw new ParseExploitException("No version found in " + exploit.getTitle());
+
+        if (tag != null) versionJoomla = tag.getName();
+        else throw new ImageNotFoundException("Joomla!");
+
+      } else {
+        if (exploit.getFilenameVulnApp() != null) {
+          type = JoomlaType.COMPONENT;
+          log.info("Trying to download from ExploitDB");
+          final var zipFile = new File(exploitDir, "/component/" + exploit.getFilenameVulnApp());
+          systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
+          if (isNotEmpty(zipFile)) log.info("Download completed");
+          else log.warn("Zip file is empty or corrupted");
+        } else throw new NoVulnerableAppException();
       }
 
-      if (tag != null) versionJoomla = tag.getName();
-      else throw new ExploitUnsupported("No docker image Joomla compatible found");
+      // Copy All necessary files
+      copyContent(exploitDir, type, exploit.getFilenameVulnApp(), versionJoomla);
+      log.info("Configuration created. Trying to configure it");
 
-      exploitDir = Utils.createDir(EXPLOITS_DIR + "/" + exploit.getId());
-    } else if (exploit.getFilenameVulnApp() != null) {
+      String[] cmdSetup =
+          type == CORE
+              ? new String[] {"sh", "setup.sh"}
+              : new String[] {"sh", "setup.sh", exploit.getFilenameVulnApp()};
+      // Setup
+      ConfigurationUtils.setupConfiguration(
+          exploitDir, ENDPOINT_TO_TEST, MAX_TIME_TEST, removeConfig, cmdSetup);
+      log.info("Container configured correctly!");
 
-      type = JoomlaType.COMPONENT;
-      // Maybe a component o plugin -> check if there is a vuln app
-      exploitDir = Utils.createDir(EXPLOITS_DIR + "/" + exploit.getId());
-
-      log.info("Exploit has Vulnerable App. Downloading it");
-      final var zipFile = new File(exploitDir, "/component/" + exploit.getFilenameVulnApp());
-      systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
-
-    } else
-      throw new ExploitUnsupported(
-          "No related to Core and No Vulnerable App available. Cannot complete!");
-
-    // Copy All necessary files
-    copyContent(exploitDir, type, exploit.getFilenameVulnApp(), versionJoomla);
-    log.info("Configuration created. Trying to configure it..");
-
-    String[] cmdSetup =
-        type == CORE
-            ? new String[] {"sh", "setup.sh"}
-            : new String[] {"sh", "setup.sh", exploit.getFilenameVulnApp()};
-    // Setup
-    ConfigurationUtils.setupConfiguration(
-        exploitDir, ENDPOINT_TO_TEST, MAX_TIME_TEST, removeConfig, cmdSetup);
-
-    log.info("Container configured correctly!");
-    cleanDirectory(exploitDir);
+      cleanDirectory(exploitDir);
+    } catch (IOException e) {
+      // In case of error, delete the main directory in order to not leave traces
+      if (Objects.nonNull(exploitDir)) {
+        try {
+          FileUtils.deleteDirectory(exploitDir);
+        } catch (IOException ignored) {
+        }
+      }
+      throw new GenerationException("An IO Exception occurred", e);
+    } catch (GenerationException e) {
+      // In case of error, delete the main directory in order to not leave traces
+      try {
+        FileUtils.deleteDirectory(exploitDir);
+      } catch (IOException ignored) {
+      }
+      throw e;
+    }
   }
 
   /**
@@ -219,30 +238,39 @@ public class JoomlaService {
     om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
   }
 
-  public void cleanDirectory(@NonNull File exploitDir) throws IOException {
-    // Remove files
-    FileUtils.deleteDirectory(new File(exploitDir, "config/mysql"));
-    FileUtils.forceDelete(new File(exploitDir, "config/joomla/install-joomla-extension.php"));
-    FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
-    FileUtils.forceDelete(new File(exploitDir, "start.sh"));
-    FileUtils.deleteDirectory(new File(exploitDir, "component"));
+  /**
+   * Clean the exploit directory deleting all unnecessary files
+   *
+   * @param exploitDir not null
+   */
+  public void cleanDirectory(@NonNull File exploitDir) {
+    try {
+      // Remove files
+      FileUtils.deleteDirectory(new File(exploitDir, "config/mysql"));
+      FileUtils.forceDelete(new File(exploitDir, "config/joomla/install-joomla-extension.php"));
+      FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
+      FileUtils.forceDelete(new File(exploitDir, "start.sh"));
+      FileUtils.deleteDirectory(new File(exploitDir, "component"));
 
-    final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
+      final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
 
-    // Remove directory and files also from docker-compose
-    ObjectMapper om = new ObjectMapper(yamlFactory);
-    final var dockerCompose =
-        om.readValue(new File(exploitDir, "docker-compose.yml"), DockerCompose.class);
+      // Remove directory and files also from docker-compose
+      ObjectMapper om = new ObjectMapper(yamlFactory);
+      final var dockerCompose =
+          om.readValue(new File(exploitDir, "docker-compose.yml"), DockerCompose.class);
 
-    dockerCompose
-        .getServices()
-        .get("joomla")
-        .getVolumes()
-        .removeIf(
-            volume ->
-                volume.contains("joomla/mysql")
-                    || volume.contains("install-joomla-extension.php")
-                    || volume.contains("./component/"));
-    om.writeValue(new File(exploitDir, "docker-compose.yml"), dockerCompose);
+      dockerCompose
+          .getServices()
+          .get("joomla")
+          .getVolumes()
+          .removeIf(
+              volume ->
+                  volume.contains("joomla/mysql")
+                      || volume.contains("install-joomla-extension.php")
+                      || volume.contains("./component/"));
+      om.writeValue(new File(exploitDir, "docker-compose.yml"), dockerCompose);
+    } catch (IOException ignored) {
+
+    }
   }
 }

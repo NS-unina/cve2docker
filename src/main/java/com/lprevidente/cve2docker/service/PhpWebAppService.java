@@ -3,8 +3,7 @@ package com.lprevidente.cve2docker.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
-import com.lprevidente.cve2docker.exception.ConfigurationException;
-import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.exception.*;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import com.lprevidente.cve2docker.utility.Utils;
 import lombok.NonNull;
@@ -64,7 +63,7 @@ public class PhpWebAppService {
   }
 
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
-      throws IOException, ConfigurationException, ExploitUnsupported {
+      throws GenerationException {
     log.info("Generating configuration for PHP WebApp Exploit");
 
     String link;
@@ -76,51 +75,58 @@ public class PhpWebAppService {
       log.info(
           "Software link related to phpgurukul.  Trying to extract the download link for the zip file");
       link = extractDownloadLinkPhpGuruKul(exploit.getSoftwareLink());
-    } else throw new ExploitUnsupported("Software link unknown: " + exploit.getSoftwareLink());
+    } else throw new ParseExploitException("Software link unknown " + exploit.getSoftwareLink());
 
     if (Objects.nonNull(link)) {
-      final var exploitDir = new File(EXPLOITS_DIR + "/" + exploit.getId());
-      if (exploitDir.exists()) FileUtils.deleteDirectory(exploitDir);
+      File exploitDir = null;
+      try {
+        exploitDir = Utils.createDir(EXPLOITS_DIR + "/" + exploit.getId());
 
-      if (!exploitDir.mkdirs())
-        throw new IOException("Impossible to create folder: " + exploitDir.getPath());
+        log.info("Downloading the zip file");
+        var zipName = link.substring(link.lastIndexOf("/") + 1);
+        var dest = new File(exploitDir, zipName);
 
-      log.info("Downloading the zip file");
-      var zipName = link.substring(link.lastIndexOf("/") + 1);
-      var dest = new File(exploitDir, zipName);
+        copyURLToFile(link, dest);
+        var www = new File(exploitDir, "www/");
+        if (!www.exists()) www.mkdir();
 
-      copyURLToFile(link, dest);
-      var www = new File(exploitDir, "www/");
-      if (!www.exists()) www.mkdir();
+        decompress(dest, www);
+        log.info("Download completed");
 
-      decompress(dest, www);
-      log.info("Download completed");
+        copyContent(exploitDir);
+        log.info("Configuration created. Trying to configure it");
 
-      copyContent(exploitDir);
-      log.info("Configuration created. Trying to configure it");
+        var index =
+            FileUtils.listFiles(www, new String[] {"php"}, true).stream()
+                .filter(
+                    file -> file.getName().equals("index.php") && !file.getPath().contains("admin"))
+                .findFirst()
+                .orElse(null);
 
-      var index =
-          FileUtils.listFiles(www, new String[] {"php"}, true).stream()
-              .filter(
-                  file -> file.getName().equals("index.php") && !file.getPath().contains("admin"))
-              .findFirst()
-              .orElse(null);
+        String endpoint;
+        if (Objects.nonNull(index)) {
+          endpoint =
+              "http://localhost"
+                  + StringUtils.remove(index.getCanonicalPath(), www.getCanonicalPath());
 
-      var endpoint = "";
-      if (Objects.nonNull(index)) {
-        endpoint =
-            "http://localhost"
-                + StringUtils.remove(index.getCanonicalPath(), www.getCanonicalPath());
+          // Activate any plugin/theme and test the configuration
+          ConfigurationUtils.setupConfiguration(
+              exploitDir, endpoint, MAX_TIME_TEST, removeConfig, (String[]) null);
 
-        // Activate any plugin/theme and test the configuration
-        ConfigurationUtils.setupConfiguration(
-            exploitDir, endpoint, MAX_TIME_TEST, removeConfig, (String[]) null);
-
-        cleanDirectory(exploitDir);
-        log.info("Container configured correctly! Run container and go to: " + endpoint);
-      } else throw new ConfigurationException("No index.php found");
-
-    } else throw new ExploitUnsupported("No source code found for the exploit");
+          cleanDirectory(exploitDir);
+          log.info("Container configured correctly! Run container and go to: " + endpoint);
+        } else throw new ConfigurationException("No index.php found");
+      } catch (IOException e) {
+        // In case of error, delete the main directory in order to not leave traces
+        if (Objects.nonNull(exploitDir)) {
+          try {
+            FileUtils.deleteDirectory(exploitDir);
+          } catch (IOException ignored) {
+          }
+        }
+        throw new GenerationException("An IO Exception occurred", e);
+      }
+    } else throw new NoVulnerableAppException();
   }
 
   private String extractDownloadLinkSourcecodester(String softwareLink) {
@@ -185,16 +191,16 @@ public class PhpWebAppService {
     return (dir, name) -> !name.contains(".DS_Store");
   }
 
-  private File findDump(@NonNull File baseDir) throws ConfigurationException {
+  private File findDump(@NonNull File baseDir) throws StructureFolderException {
     File dump = null;
     var www = new File(baseDir, "www/");
     var files = www.listFiles(excludeDS_Store());
 
     if (Objects.isNull(files) || files.length == 0)
-      throw new ConfigurationException("No project in the www folder");
+      throw new StructureFolderException("No project in the www folder");
 
     if (files.length != 1) // TODO: creare una cartella contenitore?
-    throw new ConfigurationException(
+    throw new StructureFolderException(
           "More than one file in the www folder. There should be only one directory");
 
     var file = new File(www, Utils.formatString(files[0].getName()));
@@ -203,7 +209,7 @@ public class PhpWebAppService {
     // Get all files inside the directory
     files = file.listFiles(excludeDS_Store());
     if (Objects.isNull(files) || files.length == 0)
-      throw new ConfigurationException("No project files inside the directory");
+      throw new StructureFolderException("No project files inside the directory");
 
     if (files.length > 2) {
       // Searching for a dump
@@ -212,11 +218,11 @@ public class PhpWebAppService {
         if (sqls.size() > 1) log.warn("More than one sql file found");
         dump = sqls.iterator().next();
       }
-    } else throw new ConfigurationException("Folder structure unknown");
+    } else throw new StructureFolderException("Folder structure unknown");
     return dump;
   }
 
-  private void copyContent(@NonNull File baseDir) throws IOException, ConfigurationException {
+  private void copyContent(@NonNull File baseDir) throws IOException, StructureFolderException {
 
     ConfigurationUtils.copyFiles(CONFIG_DIR, baseDir, filenames);
 
@@ -265,9 +271,16 @@ public class PhpWebAppService {
     }
   }
 
-  public void cleanDirectory(@NonNull File exploitDir) throws IOException {
-    // Remove files
-    // FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
-    FileUtils.forceDelete(new File(exploitDir, "start.sh"));
+  /**
+   * Clean the exploit directory deleting all unnecessary files
+   *
+   * @param exploitDir not null
+   */
+  public void cleanDirectory(@NonNull File exploitDir) {
+    try {
+      // Remove files
+      FileUtils.forceDelete(new File(exploitDir, "start.sh"));
+    } catch (IOException ignored) {
+    }
   }
 }

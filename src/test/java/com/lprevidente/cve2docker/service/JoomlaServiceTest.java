@@ -2,6 +2,8 @@ package com.lprevidente.cve2docker.service;
 
 import com.lprevidente.cve2docker.TestBase;
 import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.exception.ImageNotFoundException;
+import com.lprevidente.cve2docker.exception.NoVulnerableAppException;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,8 +25,8 @@ public class JoomlaServiceTest extends TestBase {
   /** Exploit Joomla <i>Component</i> JS Job with VulnApp. */
   @Test
   public void genConfigurationComponentJsJob() throws IOException {
-    final var edbID = "47232";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 47232L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -36,8 +38,8 @@ public class JoomlaServiceTest extends TestBase {
   /** Exploit Joomla <i>Component</i> Easy Shop with VulnApp. */
   @Test
   public void genConfigurationComponentEasyShop() throws IOException {
-    final var edbID = "46219";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 46219L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -51,8 +53,8 @@ public class JoomlaServiceTest extends TestBase {
   /** Exploit Joomla <i>Component</i> Proclaim with VulnApp. */
   @Test
   public void genConfigurationComponentProclaim() throws IOException {
-    final var edbID = "44164";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 44164L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -65,8 +67,8 @@ public class JoomlaServiceTest extends TestBase {
   /** Exploit Joomla <i>Component</i> Google Map Landkarten with VulnApp. */
   @Test
   public void genConfigurationComponentGoogleMapLandkarten() throws IOException {
-    final var edbID = "44113";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 44113L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -79,18 +81,17 @@ public class JoomlaServiceTest extends TestBase {
   /** Exploit Joomla <i>Component</i> no VulnApp. */
   @Test
   public void genConfigurationNoVulnApp() {
-    final var edbID = "48202";
+    final var edbID = 48202L;
 
     assertThrows(
-        ExploitUnsupported.class,
-        () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+        NoVulnerableAppException.class, () -> service.genConfigurationFromExploit(edbID, false));
   }
 
   /** Exploit Joomla <i>Core - 3.6.4</i> with Docker image and NO reference to Core. */
   @Test
   public void genConfigurationCoreWithImage() throws IOException {
-    final var edbID = "41157";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 41157L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -102,18 +103,16 @@ public class JoomlaServiceTest extends TestBase {
   /** Exploit Joomla <i>Core - 2.5.2</i> with NO Docker image. */
   @Test
   public void genConfigurationCoreWithNoImage() {
-    final var edbID = "41156";
+    final var edbID = 41156L;
 
-    assertThrows(
-        ExploitUnsupported.class,
-        () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    assertThrows(ImageNotFoundException.class, () -> service.genConfigurationFromExploit(edbID, false));
   }
 
   /** Exploit Joomla <i>Core - 3.9.1</i> with reference to Core Docker image. */
   @Test
   public void genConfigurationCoreWithReference() throws IOException {
-    final var edbID = "46200";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 46200L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");

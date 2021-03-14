@@ -7,8 +7,7 @@ import com.lprevidente.cve2docker.entity.pojo.Version;
 import com.lprevidente.cve2docker.entity.pojo.WordpressType;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
-import com.lprevidente.cve2docker.exception.ConfigurationException;
-import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.exception.*;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +16,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.expression.ParseException;
 import org.springframework.stereotype.Service;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
@@ -31,6 +29,7 @@ import org.tmatesoft.svn.core.wc.SVNWCUtil;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -82,6 +81,7 @@ public class WordpressService {
       @Value("${spring.config.wordpress.max-time-test}") Integer MAX_TIME_TEST) {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
+
   /**
    * Method to generate configuration for the exploit related to <b>Wordpress</b>. The configuration
    * consist in docker-compose, env file e other files depending on the exploit type.
@@ -90,18 +90,21 @@ public class WordpressService {
    *
    * @param exploit not null
    * @param removeConfig if true the configuration will be removed after it has been setup.
+   * @throws ParseExploitException throws when it is not possible to extrapolate the type or version
+   *     of the exploit
+   * @throws ImageNotFoundException throws when there is no image related to wordpress core
+   * @throws NoVulnerableAppException throws when there isn't a vulnerable app for the exploit
    * @throws ExploitUnsupported throws when there is no possibility to generate the configuration.
-   * @throws IOException throw when there is a problem with I/O operation
    * @throws ConfigurationException throws when there is a problem during the setup or test of the
    *     configuration.
    */
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
-      throws ExploitUnsupported, IOException, ConfigurationException {
+      throws GenerationException {
     log.info("Generating configuration for Wordpress Exploit");
     final var matcherWordpress = PATTERN_WORDPRESS.matcher(exploit.getTitle());
 
     if (!matcherWordpress.find())
-      throw new ExploitUnsupported("Pattern title unknown: " + exploit.getTitle());
+      throw new ParseExploitException("Pattern title unknown: " + exploit.getTitle());
 
     // Extract from title the Type and Target (aka Product)
     var type = WordpressType.valueOf(matcherWordpress.group(1).trim().toUpperCase());
@@ -125,17 +128,13 @@ public class WordpressService {
       firstVersion = matcher.group(2);
       secondVersion = matcher.group(4);
     } else if (type != WordpressType.CORE
-        && isNotBlank(exploit.getFilenameVulnApp())) { // There is a vulnerable app for pluign/theme
+        && isNotBlank(exploit.getFilenameVulnApp())) { // There is a vulnerable app for plugin/theme
       firstVersion = null;
       secondVersion = null;
-    } else
-      throw new ExploitUnsupported(
-          "Version unknown and no vulnerable app is present - Target = "
-              + target
-              + "  # Version = "
-              + exploit.getVersion());
+    } else throw new ParseExploitException("Version unknown and No vulnerable App is present");
 
     String product = null;
+
     // Trying to extract the name of plugin/theme from software link or product link
     // if they are related to wordpress.org
     if (isNotBlank(exploit.getSoftwareLink())) {
@@ -153,103 +152,121 @@ public class WordpressService {
 
     String versionWordpress = null;
 
-    final var exploitDir = createDir(EXPLOITS_DIR + "/" + exploit.getId());
+    File exploitDir = null;
+    try {
+      exploitDir = createDir(EXPLOITS_DIR + "/" + exploit.getId());
 
-    if (type == WordpressType.CORE) {
-      SearchTagVO.TagVO tag = null;
-      try {
+      if (type == WordpressType.CORE) { // Find the correct image for wordpress
+        SearchTagVO.TagVO tag = null;
+
+        // Search a WordPress image with a version equal to the first Version
         if (isNotBlank(firstVersion)) tag = findTag(Version.parse(firstVersion));
+
+        // If no tag has been found, then search with the second Version
         if (tag == null && isNotBlank(secondVersion)) tag = findTag(Version.parse(secondVersion));
+
+        // If no tag has been found and there is no first and second version, throw an error.
         if (tag == null && isBlank(firstVersion) && isBlank(secondVersion))
-          throw new ExploitUnsupported(
-              "Combination of version not supported: " + exploit.getTitle());
-      } catch (ParseException e) {
-        log.warn(e.toString());
-        throw new ExploitUnsupported(e);
-      }
+          throw new ParseExploitException("No version found in " + entireVersion);
 
-      if (tag != null) versionWordpress = tag.getName();
-      else throw new ExploitUnsupported("No docker image Wordpress compatible found");
+        if (tag != null) versionWordpress = tag.getName();
+        else throw new ImageNotFoundException("Wordpress");
 
-    } else {
-      File typeDir;
+      } else { // Find the Plugin/Theme associated with
 
-      typeDir = new File(exploitDir, "/" + type.name().toLowerCase() + "s/" + product);
-      if (!typeDir.exists() && !typeDir.mkdirs())
-        throw new IOException("Impossible to create folder: " + typeDir.getPath());
+        File typeDir = new File(exploitDir, type.name().toLowerCase() + "s/" + product);
+        if (!typeDir.exists() && !typeDir.mkdirs())
+          throw new IOException("Impossible to create the folder in " + typeDir.getPath());
 
-      var isCheckout = false;
-      if (isNotBlank(firstVersion)) isCheckout = checkout(type, product, firstVersion, typeDir);
+        var isCheckout = false;
+        if (isNotBlank(firstVersion)) isCheckout = checkout(type, product, firstVersion, typeDir);
 
-      // If checkout failed try with software link if exist
-      if (!isCheckout) {
-        var downloaded = false;
-        File zipFile = null;
+        // If checkout failed try with software link if exist
+        if (!isCheckout) {
+          var downloaded = false;
+          File zipFile = null;
 
-        // Try to download the zip file from software link
-        if (isNotBlank(exploit.getSoftwareLink())
-            && contains(exploit.getSoftwareLink(), product)
-            && isNotBlank(firstVersion)
-            && contains(exploit.getSoftwareLink(), firstVersion)) {
+          // Try to download the zip file from software link
+          if (isNotBlank(exploit.getSoftwareLink())
+              && contains(exploit.getSoftwareLink(), product)
+              && isNotBlank(firstVersion)
+              && contains(exploit.getSoftwareLink(), firstVersion)) {
 
-          log.debug("Trying to download it from Software link: {}", exploit.getSoftwareLink());
+            log.info("Trying to download from Software link: {}", exploit.getSoftwareLink());
 
-          zipFile = new File(exploitDir, product + ".zip");
-          try {
-            // subs
-            copyURLToFile(exploit.getSoftwareLink(), zipFile);
-            downloaded = isNotEmpty(zipFile);
-            if (downloaded) log.debug("Download completed");
-            else log.warn("Zip file empty or corrupted");
-          } catch (Exception e) {
-            log.warn("Error during downloading from software link");
+            zipFile = new File(exploitDir, product + ".zip");
+            try {
+              // subs
+              copyURLToFile(exploit.getSoftwareLink(), zipFile);
+              downloaded = isNotEmpty(zipFile);
+              if (downloaded) log.info("Download completed");
+              else log.warn("Zip file is empty or corrupted");
+            } catch (Exception e) {
+              log.warn(
+                  "An error occurred during the download form Software Link: {}",
+                  exploit.getSoftwareLink());
+            }
           }
-        }
 
-        // Try to download the vulnerable app if there is
-        if (!downloaded && StringUtils.isNotBlank(exploit.getFilenameVulnApp())) {
-          zipFile = new File(exploitDir, exploit.getFilenameVulnApp());
-          try {
-            log.debug("Trying to download it from Exploit-DB");
-            systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
-            log.debug("Download completed");
-            downloaded = true;
-          } catch (IOException e) {
-            log.warn("Error during downloading from Exploit-DB");
+          // Try to download the vulnerable app if there is
+          if (!downloaded && StringUtils.isNotBlank(exploit.getFilenameVulnApp())) {
+            zipFile = new File(exploitDir, exploit.getFilenameVulnApp());
+            try {
+              log.info("Trying to download from ExploitDB");
+              systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
+              downloaded = isNotEmpty(zipFile);
+              if (downloaded) log.info("Download completed");
+              else log.warn("Zip file is empty or corrupted");
+            } catch (IOException e) {
+              log.warn("An error occurred during the download from ExploitDB");
+            }
           }
-        }
 
-        if (downloaded) {
-          decompress(zipFile, typeDir);
-          var files = typeDir.listFiles();
-          if (files != null && files.length == 1 && files[0].isDirectory()) {
-            FileUtils.copyDirectory(files[0], typeDir);
-            FileUtils.deleteDirectory(files[0]);
-          }
-        } else {
-          throw new ExploitUnsupported(type + " not found in SVN and no Vulnerable App exist");
+          if (downloaded) {
+            decompress(zipFile, typeDir);
+            var files = typeDir.listFiles();
+            if (files != null && files.length == 1 && files[0].isDirectory()) {
+              FileUtils.copyDirectory(files[0], typeDir);
+              FileUtils.deleteDirectory(files[0]);
+            }
+          } else throw new NoVulnerableAppException();
         }
       }
+
+      // Copy the config files
+      copyContent(exploitDir, type, product, versionWordpress);
+      log.info("Configuration created. Trying to configure it");
+
+      // Activate any plugin/theme and test the configuration
+      ConfigurationUtils.setupConfiguration(
+          exploitDir,
+          ENDPOINT_TO_TEST,
+          MAX_TIME_TEST,
+          removeConfig,
+          "sh",
+          "setup.sh",
+          type.name().toLowerCase(),
+          product);
+      log.info("Container configured correctly!");
+
+      cleanDirectory(exploitDir);
+    } catch (IOException e) {
+      // In case of error, delete the main directory in order to not leave traces
+      if (Objects.nonNull(exploitDir)) {
+        try {
+          FileUtils.deleteDirectory(exploitDir);
+        } catch (IOException ignored) {
+        }
+      }
+      throw new GenerationException("An IO Exception occurred : " + e.getMessage());
+    } catch (GenerationException e) {
+      // In case of error, delete the main directory in order to not leave traces
+      try {
+        FileUtils.deleteDirectory(exploitDir);
+      } catch (IOException ignored) {
+      }
+      throw e;
     }
-
-    // Copy the config files
-    copyContent(exploitDir, type, product, versionWordpress);
-    log.info("Configuration created. Trying to configure it");
-
-    // Activate any plugin/theme and test the configuration
-    ConfigurationUtils.setupConfiguration(
-        exploitDir,
-        ENDPOINT_TO_TEST,
-        MAX_TIME_TEST,
-        removeConfig,
-        "sh",
-        "setup.sh",
-        type.name().toLowerCase(),
-        product);
-
-    // setupConfiguration(exploitDir, type, product);
-    log.info("Container configured correctly!");
-    cleanDirectory(exploitDir);
   }
 
   /**
@@ -399,9 +416,17 @@ public class WordpressService {
     }
   }
 
-  public void cleanDirectory(@NonNull File exploitDir) throws IOException {
-    // Remove files
-    FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
-    FileUtils.forceDelete(new File(exploitDir, "start.sh"));
+  /**
+   * Clean the exploit directory deleting all unnecessary files
+   *
+   * @param exploitDir not null
+   */
+  public void cleanDirectory(@NonNull File exploitDir) {
+    try {
+      // Remove files
+      FileUtils.forceDelete(new File(exploitDir, "setup.sh"));
+      FileUtils.forceDelete(new File(exploitDir, "start.sh"));
+    } catch (IOException ignored) {
+    }
   }
 }
