@@ -33,7 +33,6 @@ spring:
       max-time-test: 2 # min
       config-dir: php-webapp
 
-
 logging:
   level:
     com.lprevidente.cve2docker.service: debug

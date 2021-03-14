@@ -64,7 +64,7 @@ public class SystemCve2Docker {
    */
   public void genConfigurationFromExploit(@NonNull Long edbID, boolean removeConfig)
       throws ExploitUnsupported, IOException, ConfigurationException {
-    log.info(" --- Generation Request for edbID = {}  removeConfig = {} ---", edbID, removeConfig);
+
     ExploitDB exploitDB = null;
     try {
       exploitDB = exploitDBService.getExploitDBFromSite(edbID);
@@ -93,6 +93,8 @@ public class SystemCve2Docker {
       throw new ExploitUnsupported("CMS not unique. Reference to both WordPress and Joomla!");
     else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
       phpWebAppService.genConfiguration(exploitDB, removeConfig);
+    else
+      log.warn("Exploit type Unknown");
   }
 
   /**
@@ -156,6 +158,7 @@ public class SystemCve2Docker {
         if (Objects.nonNull(endDate) && date.after(endDate)) continue;
 
         try {
+          log.info(" --- Generation Request for edbID = {} ---", record.get("id"));
           genConfigurationFromExploit(Long.parseLong(record.get("id")), removeConfig);
           printer.printRecord(
               record.get("id"), record.get("description"), record.get("date"), "SUCCESS", "");
