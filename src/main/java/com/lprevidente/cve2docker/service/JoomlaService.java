@@ -1,10 +1,7 @@
 package com.lprevidente.cve2docker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lprevidente.cve2docker.entity.pojo.CPE;
-import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
-import com.lprevidente.cve2docker.entity.pojo.JoomlaType;
-import com.lprevidente.cve2docker.entity.pojo.Version;
+import com.lprevidente.cve2docker.entity.pojo.*;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.exception.*;
@@ -17,6 +14,7 @@ import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.expression.ParseException;
 import org.springframework.stereotype.Service;
 
@@ -34,14 +32,13 @@ import static com.lprevidente.cve2docker.entity.pojo.JoomlaType.CORE;
 import static com.lprevidente.cve2docker.utility.Utils.isNotEmpty;
 import static org.apache.commons.io.FileUtils.readFileToString;
 import static org.apache.commons.io.FileUtils.write;
-import static org.apache.commons.lang3.StringUtils.isBlank;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 
 @Slf4j
 @Service
-public class JoomlaService {
+public class JoomlaService implements IGenerateService {
 
-  @Autowired private SystemCve2Docker systemCve2Docker;
+  @Autowired @Lazy private SystemCve2Docker systemCve2Docker;
 
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
@@ -72,6 +69,12 @@ public class JoomlaService {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
+  @Override
+  public boolean canHandle(@NonNull ExploitDB exploitDB) {
+    return containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name())
+        && !containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+  }
+
   /**
    * Method to generate configuration for the exploit related to <b>Joomla</b>. The configuration
    * consist in docker-compose, env file e other files depending on the exploit type.
@@ -88,6 +91,7 @@ public class JoomlaService {
    * @throws ConfigurationException throws when there is a problem during the setup or test of the
    *     configuration.
    */
+  @Override
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
       throws GenerationException {
     log.info("Generating configuration for Joomla Exploit");

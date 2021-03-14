@@ -13,17 +13,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -36,20 +37,34 @@ import static org.apache.commons.lang3.StringUtils.containsIgnoreCase;
 @Service
 public class SystemCve2Docker {
 
-  @Autowired private NistService nistService;
+  private final NistService nistService;
 
-  @Autowired private ExploitDBService exploitDBService;
+  private final ExploitDBService exploitDBService;
 
-  @Autowired private DockerHubService dockerHubService;
-
-  @Autowired private WordpressService wordpressService;
-
-  @Autowired private JoomlaService joomlaService;
-
-  @Autowired private PhpWebAppService phpWebAppService;
+  private final DockerHubService dockerHubService;
 
   @Value("${spring.config.exploits-url-github}")
   private String EXPLOITS_URL_GITHUB;
+
+  private final IGenerateService[] services;
+
+  @Autowired
+  public SystemCve2Docker(
+      NistService nistService,
+      ExploitDBService exploitDBService,
+      DockerHubService dockerHubService,
+      WordpressService wordpressService,
+      JoomlaService joomlaService,
+      PhpWebAppService phpWebAppService) {
+
+    services = new IGenerateService[] {wordpressService, joomlaService, phpWebAppService};
+    this.nistService = nistService;
+    this.exploitDBService = exploitDBService;
+    this.dockerHubService = dockerHubService;
+  }
+
+  @PostConstruct
+  public void registerService() {}
 
   /**
    * Method to generate configuration for the exploit provided. The configuration consist in
@@ -77,19 +92,11 @@ public class SystemCve2Docker {
 
     if (Objects.isNull(exploitDB)) throw new ExploitUnsupported("Exploit doesn't exist");
 
-    var containsWordpress =
-        StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
-    var containsJoomla =
-        StringUtils.containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+    final var finalExploitDB = exploitDB;
+    final var opt =
+        Arrays.stream(services).filter(services -> services.canHandle(finalExploitDB)).findFirst();
 
-    if (containsWordpress && !containsJoomla)
-      wordpressService.genConfiguration(exploitDB, removeConfig);
-    else if (containsJoomla && !containsWordpress)
-      joomlaService.genConfiguration(exploitDB, removeConfig);
-    else if (containsJoomla)
-      throw new ExploitUnsupported("CMS not unique. Reference to both WordPress and Joomla!");
-    else if (StringUtils.equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name()))
-      phpWebAppService.genConfiguration(exploitDB, removeConfig);
+    if (opt.isPresent()) opt.get().genConfiguration(exploitDB, removeConfig);
     else throw new ExploitUnsupported("Exploit type Unknown");
   }
 

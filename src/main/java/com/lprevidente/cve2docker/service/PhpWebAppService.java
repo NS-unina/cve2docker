@@ -2,6 +2,7 @@ package com.lprevidente.cve2docker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
+import com.lprevidente.cve2docker.entity.pojo.ExploitType;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.exception.*;
 import com.lprevidente.cve2docker.utility.ConfigurationUtils;
@@ -31,10 +32,12 @@ import static com.lprevidente.cve2docker.utility.Utils.*;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 import static java.util.regex.Pattern.compile;
 import static org.apache.commons.io.FileUtils.write;
+import static org.apache.commons.lang3.StringUtils.containsIgnoreCase;
+import static org.apache.commons.lang3.StringUtils.equalsIgnoreCase;
 
 @Service
 @Slf4j
-public class PhpWebAppService {
+public class PhpWebAppService implements IGenerateService {
 
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
@@ -60,6 +63,13 @@ public class PhpWebAppService {
   public PhpWebAppService(
       @Value("${spring.config.wordpress.max-time-test}") Integer MAX_TIME_TEST) {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
+  }
+
+  @Override
+  public boolean canHandle(@NonNull ExploitDB exploitDB) {
+    return !containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name())
+        && !containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name())
+        && equalsIgnoreCase(exploitDB.getPlatform(), ExploitType.PHP.name());
   }
 
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)

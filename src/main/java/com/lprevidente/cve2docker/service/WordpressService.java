@@ -1,10 +1,7 @@
 package com.lprevidente.cve2docker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lprevidente.cve2docker.entity.pojo.CPE;
-import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
-import com.lprevidente.cve2docker.entity.pojo.Version;
-import com.lprevidente.cve2docker.entity.pojo.WordpressType;
+import com.lprevidente.cve2docker.entity.pojo.*;
 import com.lprevidente.cve2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.cve2docker.entity.vo.dockerhub.SearchTagVO;
 import com.lprevidente.cve2docker.exception.*;
@@ -16,6 +13,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.tmatesoft.svn.core.SVNDepth;
 import org.tmatesoft.svn.core.SVNException;
@@ -40,9 +38,9 @@ import static org.apache.commons.lang3.StringUtils.*;
 
 @Service
 @Slf4j
-public class WordpressService {
+public class WordpressService implements IGenerateService {
 
-  @Autowired private SystemCve2Docker systemCve2Docker;
+  @Autowired @Lazy private SystemCve2Docker systemCve2Docker;
 
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
@@ -82,6 +80,12 @@ public class WordpressService {
     this.MAX_TIME_TEST = TimeUnit.MINUTES.toMillis(MAX_TIME_TEST);
   }
 
+  @Override
+  public boolean canHandle(@NonNull ExploitDB exploitDB) {
+    return containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name())
+        && !containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+  }
+
   /**
    * Method to generate configuration for the exploit related to <b>Wordpress</b>. The configuration
    * consist in docker-compose, env file e other files depending on the exploit type.
@@ -98,6 +102,7 @@ public class WordpressService {
    * @throws ConfigurationException throws when there is a problem during the setup or test of the
    *     configuration.
    */
+  @Override
   public void genConfiguration(@NonNull ExploitDB exploit, boolean removeConfig)
       throws GenerationException {
     log.info("Generating configuration for Wordpress Exploit");
