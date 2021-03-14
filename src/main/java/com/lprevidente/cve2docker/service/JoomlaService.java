@@ -71,8 +71,8 @@ public class JoomlaService implements IGenerateService {
 
   @Override
   public boolean canHandle(@NonNull ExploitDB exploitDB) {
-    return containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name())
-        && !containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name());
+    return containsIgnoreCase(exploitDB.getTitle(), ExploitType.JOOMLA.name())
+        && !containsIgnoreCase(exploitDB.getTitle(), ExploitType.WORDPRESS.name());
   }
 
   /**

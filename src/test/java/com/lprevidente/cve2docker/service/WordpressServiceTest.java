@@ -100,6 +100,7 @@ public class WordpressServiceTest extends TestBase {
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=contact-form-by-supsystic"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
