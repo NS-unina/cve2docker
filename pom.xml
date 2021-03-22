@@ -12,7 +12,7 @@
     <artifactId>cve2docker</artifactId>
     <version>0.0.1</version>
     <name>cve2docker</name>
-    <description>Search and Generate Docker Configurations for CVE</description>
+    <description>Search and Generate Docker Configurations for Exploit</description>
 
     <properties>
         <java.version>11</java.version>
@@ -156,6 +156,12 @@
             <version>${svnkit.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>commons-cli</groupId>
+            <artifactId>commons-cli</artifactId>
+            <version>1.4</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -172,25 +178,6 @@
                         </exclude>
                     </excludes>
                 </configuration>
-            </plugin>
-            <!--  Assembly Process -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <appendAssemblyId>false</appendAssemblyId>
-                            <descriptors>
-                                <descriptor>assembly.xml</descriptor>
-                            </descriptors>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

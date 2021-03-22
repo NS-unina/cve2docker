@@ -1,7 +1,7 @@
 package com.lprevidente.cve2docker.service;
 
 import com.lprevidente.cve2docker.TestBase;
-import com.lprevidente.cve2docker.exception.ExploitUnsupported;
+import com.lprevidente.cve2docker.exception.NoVulnerableAppException;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +22,12 @@ public class WordpressServiceTest extends TestBase {
 
   @Test
   public void testGenericWordpress() throws IOException {
-    var edbID = "49539";
+    final var edbID = 49539L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -34,13 +35,14 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationPluginFormMaker() throws IOException {
-    var edbID = "44559";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 44559L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=form-maker"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -48,13 +50,14 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationPluginWPPaginate() throws IOException {
-    var edbID = "49355";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 49355L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=wp-paginate"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -62,13 +65,14 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationPluginColorbox() throws IOException {
-    var edbID = "48919";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 48919L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=wp-colorbox"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -77,10 +81,9 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationPluginEasyContactForm() {
-    var edbID = "49427";
+    final var edbID = 49427L;
     assertThrows(
-        ExploitUnsupported.class,
-        () -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+        NoVulnerableAppException.class, () -> service.genConfigurationFromExploit(edbID, false));
   }
 
   /**
@@ -90,13 +93,14 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationPluginFromSoftwareLink() throws IOException {
-    var edbID = "49544";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    var edbID = 49544L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("PLUGIN_NAME=contact-form-by-supsystic"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -105,13 +109,14 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationTheme() throws IOException {
-    var edbID = "48083";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 48083L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("THEME_NAME=fruitful"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -120,36 +125,39 @@ public class WordpressServiceTest extends TestBase {
    */
   @Test
   public void genConfigurationThemeWithVulnerableApp() throws IOException {
-    var edbID = "39552";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 39552L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("THEME_NAME=beauty-&-clean"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Wordpress <i>Core</i> with Software Link, but this should not be used. */
   @Test
   public void genConfigurationCore() throws IOException {
-    final var edbID = "47557";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 47557L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=5.2.4"));
+    FileUtils.deleteDirectory(dir);
   }
 
   /** Exploit Wordpress <i>Core</i> with 2 versions 4.7.0/4.7.1. */
   @Test
   public void genConfigurationCore2Version() throws IOException {
-    final var edbID = "41224";
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit((Long.parseLong(edbID)), false));
+    final var edbID = 41224L;
+    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
     final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
     assertTrue(envContent.contains("WORDPRESS_VERSION=4.7.1"));
+    FileUtils.deleteDirectory(dir);
   }
 }

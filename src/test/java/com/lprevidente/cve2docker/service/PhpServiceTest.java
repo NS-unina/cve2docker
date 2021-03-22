@@ -1,10 +1,8 @@
 package com.lprevidente.cve2docker.service;
 
 import com.lprevidente.cve2docker.TestBase;
-import com.lprevidente.cve2docker.entity.pojo.ExploitDB;
-import com.lprevidente.cve2docker.exception.ConfigurationException;
-import com.lprevidente.cve2docker.exception.ExploitUnsupported;
 import org.apache.commons.io.FileUtils;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,47 +10,52 @@ import org.springframework.beans.factory.annotation.Value;
 import java.io.File;
 import java.io.IOException;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 public class PhpServiceTest extends TestBase {
 
   @Value("${spring.config.exploits-dir}")
   private String EXPLOITS_DIR;
 
-  @Autowired
-  private PhpWebAppService service;
+  @Autowired private SystemCve2Docker system;
 
-  @Autowired
-  private SystemCve2Docker system;
-
+  /** Exploit Php WebApp <b>Source codester</b>: one folder, with inside the sql. */
   @Test
-  public void testConfigurationOneFolderWithSQL() throws IOException, ConfigurationException, ExploitUnsupported {
-    final var edbID = "49493";
+  @Tag("sourceCodester")
+  public void testConfigurationOneFolderWithSQL() throws IOException {
+    final var edbID = 49493L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
     FileUtils.deleteDirectory(dir);
-
-    var exploit = new ExploitDB();
-    exploit.setId(edbID);
-    exploit.setSoftwareLink("https://www.sourcecodester.com/sites/default/files/download/oretnom23/onlinegradingsystem.zip");
-    service.genConfiguration(exploit, false);
   }
 
+  /** Exploit Php WebApp <b>Source codester</b>: one folder, with inside a folder containing sql. */
   @Test
-  public void testConfigurationOneFolderWithSQLInFolder() throws IOException, ConfigurationException, ExploitUnsupported {
-    final var edbID = "49471";
+  @Tag("sourceCodester")
+  public void testConfigurationOneFolderWithSQLInFolder() throws IOException {
+    final var edbID = 49471L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
     FileUtils.deleteDirectory(dir);
-
-    var exploit = new ExploitDB();
-    exploit.setId(edbID);
-    exploit.setSoftwareLink("https://www.sourcecodester.com/download-code?nid=12275&title=Library+System+using+PHP%2FMySQli+with+Source+Code");
-    service.genConfiguration(exploit, false);
   }
 
+  /** Exploit Php WebApp <b>Source codester</b>: one folder, with inside a folder containing sql. */
   @Test
-  public void testConfigurationTwoFolder() throws IOException, ExploitUnsupported, ConfigurationException {
+  @Tag("sourceCodester")
+  public void testLibrarySystem() throws IOException {
     final var edbID = 49434L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
     FileUtils.deleteDirectory(dir);
+  }
 
-    system.genConfigurationFromExploit(edbID, false);
+  /** Exploit Php WebApp <b>Php Gurukul</b>: two folder and a file. Inside one folder there is the sql. */
+  @Test
+  @Tag("phpGuruKul")
+  public void testMonitoringSystem() throws IOException {
+    final var edbID = 49503L;
+    File dir = new File(EXPLOITS_DIR + "/" + edbID);
+    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
+    FileUtils.deleteDirectory(dir);
   }
 }

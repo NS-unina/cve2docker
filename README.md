@@ -30,13 +30,13 @@ You need to have:
 If you are interested in generating a configuration for one particular exploit, you only need the **EdbID**:
 
 ```
- java -jar cve2docker.jar --edb-id 12345 
+ java -jar cve2docker.jar -id 12345 
 ```
 
 You can also generate *multiple configurations* at the same time:
 
 ```
- java -jar cve2docker.jar --edb-id 12345 6789 87652
+ java -jar cve2docker.jar -id 12345 6789 87652
 ```
 
 If the generation **success**, you can find it in `content/generated/{edbid}`
@@ -47,16 +47,21 @@ where you just need to launch the command `docker-compose up`.
 You can also generate a series of configurations based on *different criteria* (no one is mandatory):
 
 ``` 
-java -jar cve2docker.jar --gen-all --start-date 2020-01-01 --end-date 2020-12-31 --remove-config wordpress joomla
+java -jar cve2docker.jar -a -s 2020-01-01 -e 2020-12-31 -r true -t wordpress
 ```
 
 Where:
-
-- **--starting-date**: date (*included*) after which the exploit has been published;
-- **--end-date**:  date (*included*) before which the exploit has been published;
-- **--remove-config**: remove the container after it has been tested. *Doesn't remove the files related to it*;
-- **list of exploit types**: WordPress, Joomla or PHP.
-
+```
+ -e,--end-date <yyyy-MM-dd>        Date (included) before which the
+                                   exploit has been published
+ -r,--remove-config <true/false>   If true remove the container after it
+                                   has been tested, with the volumes
+                                   associated to it. Default: false
+ -s,--start-date <yyyy-MM-dd>      Date (included) after which the exploit
+                                   has been published
+ -t,--type-exploit <type>          [REQUIRED] The exploit types:
+                                   wordpress, joomla or php
+```
 At the end of this process, the program **generates a CSV** with the name `result.csv` with the result of all
 configuration.
 

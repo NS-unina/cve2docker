@@ -5,14 +5,15 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.lprevidente.cve2docker.exception.ConfigurationException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -43,10 +44,8 @@ public class ConfigurationUtils {
         try {
           var response = client.send(request, HttpResponse.BodyHandlers.ofString());
           if (response.statusCode() == 200) {
-            if (Objects.nonNull(cmdSetup))
-              res = executeProgram(exploitDir, cmdSetup);
-            else
-              res = "ok";
+            if (Objects.nonNull(cmdSetup)) res = executeProgram(exploitDir, cmdSetup);
+            else res = "ok";
 
             if (res.equals("ok")) setupCompleted = true;
             else throw new ConfigurationException("Impossible to setup docker: " + res);
@@ -86,5 +85,27 @@ public class ConfigurationUtils {
         .configure(YAMLGenerator.Feature.MINIMIZE_QUOTES, true)
         .configure(YAMLGenerator.Feature.INDENT_ARRAYS, true)
         .configure(YAMLGenerator.Feature.WRITE_DOC_START_MARKER, false);
+  }
+
+  public static void copyFiles(@NonNull String directory, @NonNull File destDir, String[] files)
+      throws IOException {
+
+    for (var filename : files) {
+      // Creating the file
+      var file = new File(destDir, filename);
+      file.getParentFile().mkdirs();
+      IOUtils.copy(
+          getBufferedReaderResource(directory+"/"+filename),
+          new FileOutputStream(file.getPath()),
+          StandardCharsets.UTF_8);
+    }
+  }
+
+  public static BufferedReader getBufferedReaderResource(@NonNull String path) throws IOException {
+    var in = ConfigurationUtils.class.getClassLoader().getResourceAsStream(path);
+
+    if (Objects.isNull(in)) throw new IOException("File " + path + " not found in resource folder");
+
+    return new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
   }
 }

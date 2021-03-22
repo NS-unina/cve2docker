@@ -5,7 +5,6 @@ services:
     volumes:
       - ./config/joomla/configuration.php:/var/www/html/configuration.php
       - ./config/joomla/install-joomla-extension.php:/var/www/html/cli/install-joomla-extension.php
-      - ./component/unzip:/var/www/html/tmp
       - ./config/joomla/mysql:/var/www/html/installation/sql/mysql
     links:
       - db:mysql

@@ -1,16 +1,15 @@
 package com.lprevidente.cve2docker;
 
-import com.lprevidente.cve2docker.service.WordpressServiceTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-@SpringBootTest
+@ExtendWith(SpringExtension.class)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+    classes = Cve2DockerApplication.class,
+    properties = "command.line.runner.enabled=false")
 class Cve2DockerApplicationTests {
-
-  @Test
-  void contextLoads() {
-
-  }
 
 }

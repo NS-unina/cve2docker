@@ -5,7 +5,6 @@ services:
     ports:
       - 80:80
     volumes:
-      - ./config/php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
       - wp-app:/var/www/html
     environment:
       WORDPRESS_DB_HOST: db
@@ -35,7 +34,6 @@ services:
     image: wordpress:cli
     user: xfs
     volumes:
-      - ./config/php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
       - wp-app:/var/www/html
     depends_on:
       - db

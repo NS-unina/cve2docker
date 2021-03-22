@@ -37,7 +37,7 @@ public class Version implements Comparable<Version> {
    *
    * @param toParse The String object to parse.
    * @return A new Version object.
-   * @throws Exception When there is an error parsing the String.
+   * @throws ParseException When there is an error parsing the String.
    */
   public static Version parse(String toParse) throws ParseException {
     Matcher m = STD_VERSION_PATT.matcher(toParse);
