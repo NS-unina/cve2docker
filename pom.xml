@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.lprevidente</groupId>
     <artifactId>cve2docker</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.2</version>
     <name>cve2docker</name>
     <description>Search and Generate Docker Configurations for Exploit</description>
 
