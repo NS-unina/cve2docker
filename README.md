@@ -1,4 +1,4 @@
-# Cve2Docker (o better *ExploitDB2Docker*)
+# Edb2Docker
 
 The project aims is to **automatize** the creation process of docker-compose for an exploit present
 in [ExploitDB](https://www.exploit-db.com). Currently *are supported* only exploit related to:
@@ -30,13 +30,13 @@ You need to have:
 If you are interested in generating a configuration for one particular exploit, you only need the **EdbID**:
 
 ```
- java -jar cve2docker.jar -id 12345 
+ java -jar edb2docker.jar -id 12345 
 ```
 
 You can also generate *multiple configurations* at the same time:
 
 ```
- java -jar cve2docker.jar -id 12345 6789 87652
+ java -jar edb2docker.jar -id 12345 6789 87652
 ```
 
 If the generation **success**, you can find it in `content/generated/{edbid}`
@@ -47,7 +47,7 @@ where you just need to launch the command `docker-compose up`.
 You can also generate a series of configurations based on *different criteria* (no one is mandatory):
 
 ``` 
-java -jar cve2docker.jar -a -s 2020-01-01 -e 2020-12-31 -r true -t wordpress
+java -jar edb2docker.jar -a -s 2020-01-01 -e 2020-12-31 -r true -t wordpress
 ```
 
 Where:
