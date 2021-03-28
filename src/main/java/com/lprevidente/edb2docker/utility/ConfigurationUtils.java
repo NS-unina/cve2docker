@@ -6,6 +6,7 @@ import com.lprevidente.edb2docker.exception.ConfigurationException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.*;
 import java.net.URI;
@@ -32,7 +33,9 @@ public class ConfigurationUtils {
     boolean setupCompleted = false;
     try {
       var res = executeProgram(exploitDir, "sh", "start.sh");
-      if (!res.equals("ok")) throw new ConfigurationException("Impossible to start docker: " + res);
+      if (res.getLeft() == 1)
+        throw new ConfigurationException(
+            "Impossible to start the container. Make sure that the ports 80 and 8080 are not already allocated!");
 
       final long start = System.currentTimeMillis();
       final var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
@@ -45,9 +48,9 @@ public class ConfigurationUtils {
           var response = client.send(request, HttpResponse.BodyHandlers.ofString());
           if (response.statusCode() == 200) {
             if (Objects.nonNull(cmdSetup)) res = executeProgram(exploitDir, cmdSetup);
-            else res = "ok";
+            else res = Pair.of(0, null);
 
-            if (res.equals("ok")) setupCompleted = true;
+            if (res.getLeft() == 0) setupCompleted = true;
             else throw new ConfigurationException("Impossible to setup docker: " + res);
           } else {
             TimeUnit.SECONDS.sleep(2);

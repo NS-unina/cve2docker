@@ -6,17 +6,18 @@ res=$(docker-compose run --rm wpcli wp core install --path="/var/www/html" --url
 # In case of error stop and print the output
 if [ $? -ne 0 ]; then
   echo "$res"
-  exit
+  exit 1
 fi
 
 # Check if there is the neeed to activate a plugin/theme
 if [ ! -z "$1" ] && [ ! -z "$2" ]; then
   res=$(docker-compose run --rm wpcli wp $1 --path="/var/www/html" activate $2 2>&1)
   if [ $? -eq 0 ]; then
-    echo "ok"
+    exit 0
   else
     echo "$res"
+    exit 1
   fi
 else
-  echo "ok"
+  exit 0
 fi

@@ -5,7 +5,7 @@ res=$(docker-compose exec -T joomla sed -i 's/#_/j/g' /var/www/html/installation
 
 if [ $? -ne 0 ]; then
   echo "$res"
-  exit
+  exit 1
 fi
 
 # Running Joomla install SQL
@@ -13,7 +13,7 @@ res=$(docker-compose exec -T db mysql -u root -proot joomla <./config/joomla/mys
 
 if [ $? -ne 0 ]; then
   echo "$res"
-  exit
+  exit 1
 fi
 
 # Adding root user
@@ -21,7 +21,7 @@ res=$(docker-compose exec -T db mysql -uroot -proot joomla <./config/mysql/init.
 
 if [ $? -ne 0 ]; then
   echo "$res"
-  exit
+  exit 1
 fi
 
 # Deleting installation directory
@@ -30,7 +30,7 @@ res=$(rm -R ./config/joomla/mysql 2>&1)
 
 if [ $? -ne 0 ]; then
   echo "$res"
-  exit
+  exit 1
 fi
 
 # Install the extension
@@ -45,12 +45,13 @@ if [ ! -z "$1" ]; then
 
   if [ $? -eq 0 ]; then
     # Adjust permission
-    docker-compose exec -T joomla chmod -R 777 /var/www/html/administrator/components > /dev/null 2>&1
-    docker-compose exec -T joomla chmod -R 777 /var/www/html/media > /dev/null 2>&1
-    echo "ok"
+    docker-compose exec -T joomla chmod -R 777 /var/www/html/administrator/components >/dev/null 2>&1
+    docker-compose exec -T joomla chmod -R 777 /var/www/html/media >/dev/null 2>&1
+    exit 0
   else
     echo "$res"
+    exit 1
   fi
 else
-  echo "ok"
+  exit 0
 fi

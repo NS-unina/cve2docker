@@ -7,6 +7,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.util.UriEncoder;
 
 import java.io.*;
@@ -57,15 +58,15 @@ public class Utils {
    * @throws InterruptedException If the current thread is interrupted by another thread while it is
    *     waiting, then the wait is ended and an InterruptedException is thrown
    */
-  public static String executeProgram(@NonNull File dir, @NonNull String... cmd)
+  public static Pair<Integer, String> executeProgram(@NonNull File dir, @NonNull String... cmd)
       throws IOException, InterruptedException {
     ProcessBuilder builder = new ProcessBuilder(cmd);
     builder.directory(dir.getCanonicalFile());
     builder.redirectErrorStream(true);
     Process process = builder.start();
-    process.waitFor();
+    final var i = process.waitFor();
     BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-    return String.join("\n", reader.lines().toArray(String[]::new));
+    return Pair.of(i, String.join("\n", reader.lines().toArray(String[]::new)));
   }
 
   /**

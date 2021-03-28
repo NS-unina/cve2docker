@@ -11,7 +11,7 @@ For *WordPress* and **Joomla** there is always the same configuration, that is  
 , ```project title = test```, ```email = test@test.test```. So the tool takes care of the **initialization of the
 project** and also the possible installation of the *plugin*, *theme* or *component* associated with it.
 
-For MySQL the root password is simple ```root```.
+For MySQL the root password is simple ```root```. The access for PhpMyAdmin is `user: root  pass: root`.
 
 See **consideration** section for more info for which exploit is capable of generating.
 
