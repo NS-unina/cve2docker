@@ -1,7 +1,7 @@
 version: '2'
 services:
   joomla:
-    image: joomla:${JOOMLA_VERSION}
+    image: joomla:3.9.24
     volumes:
       - ./config/joomla/configuration.php:/var/www/html/configuration.php
       - ./config/joomla/install-joomla-extension.php:/var/www/html/cli/install-joomla-extension.php
@@ -13,20 +13,20 @@ services:
     environment:
       JOOMLA_DB_HOST: db
       JOOMLA_DB_USER: root
-      JOOMLA_DB_PASSWORD: "${DB_ROOT_PASSWORD}"
-      JOOMLA_DB_NAME: "${DB_NAME}"
+      JOOMLA_DB_PASSWORD: root
+      JOOMLA_DB_NAME: joomla
   db:
     image: mysql:5.7
     command: mysqld --sql_mode=""
     environment:
-      MYSQL_DATABASE: "${DB_NAME}"
-      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_DATABASE: joomla
+      MYSQL_ROOT_PASSWORD: root
   pma:
     image: phpmyadmin/phpmyadmin
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: root
     ports:
       - 8080:80
     links:

@@ -3,7 +3,6 @@ package com.lprevidente.edb2docker.service;
 import com.lprevidente.edb2docker.api.NistAPI;
 import com.lprevidente.edb2docker.entity.pojo.CPE;
 import com.lprevidente.edb2docker.entity.vo.nist.SearchCpeVO;
-import com.lprevidente.edb2docker.entity.vo.nist.VulnerabilityVO;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -40,23 +39,6 @@ public class NistService {
             .addConverterFactory(JacksonConverterFactory.create())
             .build();
     nistAPI = retrofit.create(NistAPI.class);
-  }
-
-  /**
-   * Return {@link VulnerabilityVO} containing all information provided by NIST about the cve.
-   *
-   * @param cveID must be in the following format: YYYY-XXXX
-   * @return <b>null</b> if the vulnerability doesn't exist
-   * @throws IOException throw when there is a problem performing the request or the
-   *     deserialization.
-   */
-  public VulnerabilityVO getVulnerability(@NonNull String cveID) throws IOException {
-    log.debug("[getVulnerability] Request to NIST cveID = {}", cveID);
-    var response = nistAPI.getCVEInformation("cve-" + cveID).execute();
-    log.debug("[getVulnerability] Response from NIST {}", response.code());
-    return response.isSuccessful() && response.body() != null
-        ? response.body().getResult().getCVE_Items().get(0)
-        : null;
   }
 
   /**

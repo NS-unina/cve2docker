@@ -1,16 +1,16 @@
 version: '2'
 services:
   wp:
-    image: wordpress:${WORDPRESS_VERSION}
+    image: wordpress:latest
     ports:
       - 80:80
     volumes:
       - wp-app:/var/www/html
     environment:
       WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_NAME: ${DB_NAME}
+      WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DB_USER: root
-      WORDPRESS_DB_PASSWORD: ${DB_ROOT_PASSWORD}
+      WORDPRESS_DB_PASSWORD: root
     depends_on:
       - db
     links:
@@ -20,7 +20,7 @@ services:
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: root
     ports:
       - 8080:80
     links:
@@ -28,8 +28,8 @@ services:
   db:
     image: mysql:5.7
     environment:
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: wordpress
+      MYSQL_ROOT_PASSWORD: root
   wpcli:
     image: wordpress:cli
     user: xfs

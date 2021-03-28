@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static com.lprevidente.edb2docker.entity.pojo.JoomlaType.COMPONENT;
 import static com.lprevidente.edb2docker.entity.pojo.JoomlaType.CORE;
 import static com.lprevidente.edb2docker.utility.Utils.isNotEmpty;
 import static org.apache.commons.io.FileUtils.readFileToString;
@@ -91,7 +92,7 @@ public class JoomlaService implements IGenerateService {
       throws GenerationException {
     log.info("Generating configuration for Joomla Exploit");
 
-    String versionJoomla = null;
+    String toAdd = null;
     File exploitDir = null;
     JoomlaType type;
 
@@ -120,12 +121,13 @@ public class JoomlaService implements IGenerateService {
         if (tag == null && isBlank(firstVersion) && isBlank(secondVersion))
           throw new ParseExploitException("No version found in " + exploit.getTitle());
 
-        if (tag != null) versionJoomla = tag.getName();
+        if (tag != null) toAdd = tag.getName();
         else throw new ImageNotFoundException("Joomla!");
 
       } else {
         if (exploit.getFilenameVulnApp() != null) {
           type = JoomlaType.COMPONENT;
+          toAdd = exploit.getFilenameVulnApp();
           log.info("Trying to download from ExploitDB");
           final var zipFile = new File(exploitDir, "/component/" + exploit.getFilenameVulnApp());
           systemCve2Docker.downloadVulnApp(exploit.getFilenameVulnApp(), zipFile);
@@ -135,13 +137,14 @@ public class JoomlaService implements IGenerateService {
       }
 
       // Copy All necessary files
-      copyContent(exploitDir, type, exploit.getFilenameVulnApp(), versionJoomla);
+      copyContent(exploitDir, type, toAdd);
       log.info("Configuration created. Trying to configure it");
 
       String[] cmdSetup =
           type == CORE
               ? new String[] {"sh", "setup.sh"}
               : new String[] {"sh", "setup.sh", exploit.getFilenameVulnApp()};
+
       // Setup
       ConfigurationUtils.setupConfiguration(
           exploitDir, ENDPOINT_TO_TEST, MAX_TIME_TEST, removeConfig, cmdSetup);
@@ -195,20 +198,14 @@ public class JoomlaService implements IGenerateService {
    *
    * @param baseDir the directory in which the files should be copied. component the name of Joomla
    *     component.
-   * @param component the name of joomla component
+   * @param toAdd the name of component or the version of joomla
    * @throws IOException if the file provided is not a directory or an error during the copy
    *     process.
    */
-  private void copyContent(
-      @NonNull File baseDir, @NonNull JoomlaType type, String component, String version)
+  private void copyContent(@NonNull File baseDir, @NonNull JoomlaType type, String toAdd)
       throws IOException {
 
     ConfigurationUtils.copyFiles(CONFIG_DIR, baseDir, filenames);
-
-    // Copy the env file and append the component name
-    var env = new File(baseDir, ".env");
-    var contentEnv =
-        IOUtils.toString(ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/.env"));
 
     //  Read Docker-compose
     final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
@@ -221,19 +218,17 @@ public class JoomlaService implements IGenerateService {
 
     switch (type) {
       case CORE:
-        contentEnv = contentEnv.replace("3.9.24", version);
+        dockerCompose.getServices().get("joomla").setImage("joomla:" + toAdd);
         break;
       case COMPONENT:
-        contentEnv += "\nCOMPONENT_NAME=" + component;
         dockerCompose
             .getServices()
             .get("joomla")
             .getVolumes()
-            .add("./component/${COMPONENT_NAME}:/var/www/html/work_directory/${COMPONENT_NAME}");
+            .add("./component/" + toAdd + ":/var/www/html/work_directory/" + toAdd);
         break;
     }
 
-    write(env, contentEnv, StandardCharsets.UTF_8);
     om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
   }
 

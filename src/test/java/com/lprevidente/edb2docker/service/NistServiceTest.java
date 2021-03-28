@@ -2,48 +2,43 @@ package com.lprevidente.edb2docker.service;
 
 import com.lprevidente.edb2docker.TestBase;
 import com.lprevidente.edb2docker.entity.pojo.CPE;
+import com.lprevidente.edb2docker.entity.pojo.Version;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Slf4j
 public class NistServiceTest extends TestBase {
 
   @Autowired
   private NistService service;
 
   @Test
-  public void getExistingCVE() {
-    assertDoesNotThrow(() -> {
-      final var vulnerability = service.getVulnerability("2020-1938");
-      assertNotNull(vulnerability);
-      assertFalse(vulnerability.getCve().getReferences().getReference_data().isEmpty());
-      assertNull(vulnerability
-          .getCve()
-          .getReferences()
-          .getReference_data()
-          .stream()
-          .filter(ref -> ref.getRefsource().equals("EXPLOIT-DB"))
-          .findFirst().orElse(null));
-      assertFalse(vulnerability.getConfigurations().getNodes().isEmpty());
-      CPE.parse("cpe:2.3:a:apache:tomcat:*:*:*:*:*:*:*:*");
-
-      assertTrue(vulnerability.getConfigurations().getNodes().get(0).getCpe_match().stream().anyMatch(cpeMatchVO -> {
-        try {
-          return cpeMatchVO.getCpe().equals(CPE.parse("cpe:2.3:a:apache:tomcat:*:*:*:*:*:*:*:*"));
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-        return false;
-      }));
-    });
+  public void testCPE() {
+    Assertions.assertDoesNotThrow(
+        () -> {
+          final var cpes =
+              service.getCpes(
+                  new CPE(
+                      "2.3", CPE.Part.APPLICATION, "wordpress", "wordpress", Version.parse("4.8.*")));
+          assertNotNull(cpes);
+          assertEquals(17, cpes.getTotalResults());
+        });
   }
 
   @Test
-  public void getNotExistingCVE() {
-    assertDoesNotThrow(() -> {
-      final var vulnerability = service.getVulnerability("2018-200001");
-      assertNull(vulnerability);
-    });
+  public void testCPEKo() {
+    Assertions.assertDoesNotThrow(
+        () -> {
+          final var cpes =
+              service.getCpes(
+                  new CPE(
+                      "2.5", CPE.Part.APPLICATION, "wordpress", "wordpress", Version.parse("4.8.*")));
+          assertNull(cpes);
+        });
   }
+
 }

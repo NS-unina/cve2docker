@@ -1,7 +1,12 @@
 package com.lprevidente.edb2docker.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lprevidente.edb2docker.TestBase;
+import com.lprevidente.edb2docker.entity.pojo.WordpressType;
+import com.lprevidente.edb2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.edb2docker.exception.NoVulnerableAppException;
+import com.lprevidente.edb2docker.utility.ConfigurationUtils;
+import lombok.NonNull;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,9 +44,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("PLUGIN_NAME=form-maker"));
+    assertTrue(testContentDockercompose(dir, WordpressType.PLUGIN, "form-maker"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -54,9 +57,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("PLUGIN_NAME=wp-paginate"));
+    assertTrue(testContentDockercompose(dir, WordpressType.PLUGIN, "wp-paginate"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -69,9 +70,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("PLUGIN_NAME=wp-colorbox"));
+    assertTrue(testContentDockercompose(dir, WordpressType.PLUGIN, "wp-colorbox"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -82,8 +81,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginEasyContactForm() {
     final var edbID = 49427L;
-    assertThrows(
-        NoVulnerableAppException.class, () -> service.genConfiguration(edbID, false));
+    assertThrows(NoVulnerableAppException.class, () -> service.genConfiguration(edbID, false));
   }
 
   /**
@@ -97,9 +95,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("PLUGIN_NAME=contact-form-by-supsystic"));
+    assertTrue(testContentDockercompose(dir, WordpressType.PLUGIN, "contact-form-by-supsystic"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -113,9 +109,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("THEME_NAME=fruitful"));
+    assertTrue(testContentDockercompose(dir, WordpressType.THEME, "fruitful"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -129,9 +123,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("THEME_NAME=beauty-&-clean"));
+    assertTrue(testContentDockercompose(dir, WordpressType.THEME, "beauty-&-clean"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -142,9 +134,7 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("WORDPRESS_VERSION=5.2.4"));
+    assertTrue(testContentDockercompose(dir, WordpressType.CORE, "5.2.4"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -155,9 +145,33 @@ public class WordpressServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("WORDPRESS_VERSION=4.7.1"));
+    assertTrue(testContentDockercompose(dir, WordpressType.CORE, "4.7.1"));
     FileUtils.deleteDirectory(dir);
+  }
+
+  private boolean testContentDockercompose(
+      @NonNull File exploitDir, @NonNull WordpressType type, @NonNull String toCompare) {
+    try {
+      //  Read Docker-compose
+      final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
+
+      ObjectMapper om = new ObjectMapper(yamlFactory);
+      final var dockerCompose =
+          om.readValue(new File(exploitDir + "/docker-compose.yml"), DockerCompose.class);
+
+      if (type.equals(WordpressType.CORE))
+        return dockerCompose.getServices().get("wp").getImage().equals("wordpress:" + toCompare);
+      else {
+        String volume =
+            String.format(
+                "./%ss/%s/:/var/www/html/wp-content/%ss/%s",
+                type.name().toLowerCase(), toCompare, type.name().toLowerCase(), toCompare);
+        return dockerCompose.getServices().get("wp").getVolumes().contains(volume)
+            && dockerCompose.getServices().get("wpcli").getVolumes().contains(volume);
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+      return false;
+    }
   }
 }

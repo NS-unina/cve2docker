@@ -9,7 +9,6 @@ import com.lprevidente.edb2docker.utility.ConfigurationUtils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,14 +25,13 @@ import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static com.lprevidente.edb2docker.entity.pojo.JoomlaType.CORE;
 import static com.lprevidente.edb2docker.utility.Utils.isNotEmpty;
 import static com.lprevidente.edb2docker.utility.Utils.*;
-import static org.apache.commons.io.FileUtils.write;
 import static org.apache.commons.lang3.StringUtils.*;
 
 @Service
@@ -138,24 +136,22 @@ public class WordpressService implements IGenerateService {
       secondVersion = null;
     } else throw new ParseExploitException("Version unknown and No vulnerable App is present");
 
-    String product = null;
+    String toAdd = null;
 
-    // Trying to extract the name of plugin/theme from software link or product link
+    // Trying to extract the name of plugin/theme from software link or toAdd link
     // if they are related to wordpress.org
     if (isNotBlank(exploit.getSoftwareLink())) {
       var targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getSoftwareLink());
-      if (targetMatcher.find()) product = targetMatcher.group(1);
+      if (targetMatcher.find()) toAdd = targetMatcher.group(1);
       else if (isNotBlank(exploit.getProductLink())) {
         targetMatcher = PATTERN_TARGET_WORDPRESS.matcher(exploit.getProductLink());
-        if (targetMatcher.find()) product = targetMatcher.group(1);
+        if (targetMatcher.find()) toAdd = targetMatcher.group(1);
       }
     }
 
-    // If the product hasn't been found in the links, extract it from title removing the version and
+    // If the toAdd hasn't been found in the links, extract it from title removing the version and
     // extracting
-    if (product == null) product = formatString(remove(target, entireVersion));
-
-    String versionWordpress = null;
+    if (toAdd == null) toAdd = formatString(remove(target, entireVersion));
 
     File exploitDir = null;
     try {
@@ -174,17 +170,17 @@ public class WordpressService implements IGenerateService {
         if (tag == null && isBlank(firstVersion) && isBlank(secondVersion))
           throw new ParseExploitException("No version found in " + entireVersion);
 
-        if (tag != null) versionWordpress = tag.getName();
+        if (tag != null) toAdd = tag.getName();
         else throw new ImageNotFoundException("Wordpress");
 
       } else { // Find the Plugin/Theme associated with
 
-        File typeDir = new File(exploitDir, type.name().toLowerCase() + "s/" + product);
+        File typeDir = new File(exploitDir, type.name().toLowerCase() + "s/" + toAdd);
         if (!typeDir.exists() && !typeDir.mkdirs())
           throw new IOException("Impossible to create the folder in " + typeDir.getPath());
 
         var isCheckout = false;
-        if (isNotBlank(firstVersion)) isCheckout = checkout(type, product, firstVersion, typeDir);
+        if (isNotBlank(firstVersion)) isCheckout = checkout(type, toAdd, firstVersion, typeDir);
 
         // If checkout failed try with software link if exist
         if (!isCheckout) {
@@ -193,13 +189,13 @@ public class WordpressService implements IGenerateService {
 
           // Try to download the zip file from software link
           if (isNotBlank(exploit.getSoftwareLink())
-              && contains(exploit.getSoftwareLink(), product)
+              && contains(exploit.getSoftwareLink(), toAdd)
               && isNotBlank(firstVersion)
               && contains(exploit.getSoftwareLink(), firstVersion)) {
 
             log.info("Trying to download from Software link: {}", exploit.getSoftwareLink());
 
-            zipFile = new File(exploitDir, product + ".zip");
+            zipFile = new File(exploitDir, toAdd + ".zip");
             try {
               // subs
               copyURLToFile(exploit.getSoftwareLink(), zipFile);
@@ -239,19 +235,17 @@ public class WordpressService implements IGenerateService {
       }
 
       // Copy the config files
-      copyContent(exploitDir, type, product, versionWordpress);
+      copyContent(exploitDir, type, toAdd);
       log.info("Configuration created. Trying to configure it");
+
+      String[] cmdSetup =
+          type == WordpressType.CORE
+              ? new String[] {"sh", "setup.sh"}
+              : new String[] {"sh", "setup.sh", type.name().toLowerCase(), toAdd};
 
       // Activate any plugin/theme and test the configuration
       ConfigurationUtils.setupConfiguration(
-          exploitDir,
-          ENDPOINT_TO_TEST,
-          MAX_TIME_TEST,
-          removeConfig,
-          "sh",
-          "setup.sh",
-          type.name().toLowerCase(),
-          product);
+          exploitDir, ENDPOINT_TO_TEST, MAX_TIME_TEST, removeConfig, cmdSetup);
       log.info("Container configured correctly!");
 
       cleanDirectory(exploitDir);
@@ -304,22 +298,16 @@ public class WordpressService implements IGenerateService {
    * @param baseDir the directory in which the files should be copied. component the name of Joomla
    *     component.
    * @param type the type of wordpress exploit
-   * @param product the name of the product, can be null.
-   * @param version the wordpress version (/tag), should be specified only if the type is CORE.
+   * @param toAdd the value to add to docker-compose. If type is Core, represent the version,
+   *     otherwise the theme or plugin name.
    * @throws IOException if the file provided is not a directory or an error during the copy
    *     process.
    */
-  private void copyContent(
-      @NonNull File baseDir, @NonNull WordpressType type, String product, String version)
+  private void copyContent(@NonNull File baseDir, @NonNull WordpressType type, String toAdd)
       throws IOException {
 
     // FileUtils.copyDirectory(new File(CONFIG_DIR), baseDir);
     ConfigurationUtils.copyFiles(CONFIG_DIR, baseDir, filenames);
-
-    // Copy the env file and append the plugin or theme name
-    var env = new File(baseDir, ".env");
-    var contentEnv =
-        IOUtils.toString(ConfigurationUtils.getBufferedReaderResource(CONFIG_DIR + "/.env"));
 
     //  Read Docker-compose
     final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
@@ -332,37 +320,19 @@ public class WordpressService implements IGenerateService {
 
     switch (type) {
       case CORE:
-        contentEnv = contentEnv.replace("latest", version);
-        break;
-      case PLUGIN:
-        contentEnv += "\nPLUGIN_NAME=" + product;
-        dockerCompose
-            .getServices()
-            .get("wp")
-            .getVolumes()
-            .add("./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}");
-        dockerCompose
-            .getServices()
-            .get("wpcli")
-            .getVolumes()
-            .add("./plugins/${PLUGIN_NAME}/:/var/www/html/wp-content/plugins/${PLUGIN_NAME}");
+        dockerCompose.getServices().get("wp").setImage("wordpress:" + toAdd);
         break;
       case THEME:
-        contentEnv += "\nTHEME_NAME=" + product;
-        dockerCompose
-            .getServices()
-            .get("wp")
-            .getVolumes()
-            .add("./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}");
-        dockerCompose
-            .getServices()
-            .get("wpcli")
-            .getVolumes()
-            .add("./themes/${THEME_NAME}/:/var/www/html/wp-content/themes/${THEME_NAME}");
+      case PLUGIN:
+        String volume =
+            String.format(
+                "./%ss/%s/:/var/www/html/wp-content/%ss/%s",
+                type.name().toLowerCase(), toAdd, type.name().toLowerCase(), toAdd);
+        dockerCompose.getServices().get("wp").getVolumes().add(volume);
+        dockerCompose.getServices().get("wpcli").getVolumes().add(volume);
         break;
     }
 
-    write(env, contentEnv, StandardCharsets.UTF_8);
     om.writeValue(new File(baseDir, "docker-compose.yml"), dockerCompose);
   }
 

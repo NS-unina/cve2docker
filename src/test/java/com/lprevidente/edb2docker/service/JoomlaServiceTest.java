@@ -1,8 +1,12 @@
 package com.lprevidente.edb2docker.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lprevidente.edb2docker.TestBase;
+import com.lprevidente.edb2docker.entity.pojo.docker.DockerCompose;
 import com.lprevidente.edb2docker.exception.ImageNotFoundException;
 import com.lprevidente.edb2docker.exception.NoVulnerableAppException;
+import com.lprevidente.edb2docker.utility.ConfigurationUtils;
+import lombok.NonNull;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,9 +31,6 @@ public class JoomlaServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("COMPONENT_NAME=b8df21a9bed50ce4ee1681e0077e3b5d-jsjobs.zip"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -41,11 +41,6 @@ public class JoomlaServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(
-        envContent.contains(
-            "COMPONENT_NAME=cba36c9f7233ca178bc62bf0bd41115d-com_easyshop-v1.2.3.zip"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -56,10 +51,6 @@ public class JoomlaServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(
-        envContent.contains("COMPONENT_NAME=6ac663f3794ba28f8c736c2881e44b1e-pkg_proclaim.zip"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -70,10 +61,6 @@ public class JoomlaServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(
-        envContent.contains("COMPONENT_NAME=75b746a6c5cf1caa4aa1348f19247562-com_gmap_4.2.3.zip"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -82,8 +69,7 @@ public class JoomlaServiceTest extends TestBase {
   public void genConfigurationNoVulnApp() {
     final var edbID = 48202L;
 
-    assertThrows(
-        NoVulnerableAppException.class, () -> service.genConfiguration(edbID, false));
+    assertThrows(NoVulnerableAppException.class, () -> service.genConfiguration(edbID, false));
   }
 
   /** Exploit Joomla <i>Core - 3.6.4</i> with Docker image and NO reference to Core. */
@@ -93,9 +79,7 @@ public class JoomlaServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("JOOMLA_VERSION=3.6.4"));
+    assertTrue(testContentDockercompose(dir, "3.6.4"));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -114,9 +98,22 @@ public class JoomlaServiceTest extends TestBase {
     assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    var env = new File(dir, ".env");
-    final var envContent = FileUtils.readFileToString(env, StandardCharsets.UTF_8);
-    assertTrue(envContent.contains("JOOMLA_VERSION=3.9.1"));
+    assertTrue(testContentDockercompose(dir, "3.9.1"));
     FileUtils.deleteDirectory(dir);
+  }
+
+  private boolean testContentDockercompose(@NonNull File exploitDir, @NonNull String version) {
+    try {
+      //  Read Docker-compose
+      final var yamlFactory = ConfigurationUtils.getYAMLFactoryDockerCompose();
+
+      ObjectMapper om = new ObjectMapper(yamlFactory);
+      final var dockerCompose =
+          om.readValue(new File(exploitDir + "/docker-compose.yml"), DockerCompose.class);
+      return dockerCompose.getServices().get("joomla").getImage().equals("joomla:" + version);
+    } catch (IOException e) {
+      e.printStackTrace();
+      return false;
+    }
   }
 }
