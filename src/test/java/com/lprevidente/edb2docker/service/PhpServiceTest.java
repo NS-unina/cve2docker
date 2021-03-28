@@ -25,7 +25,7 @@ public class PhpServiceTest extends TestBase {
   public void testConfigurationOneFolderWithSQL() throws IOException {
     final var edbID = 49493L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> system.genConfiguration(edbID, false));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -35,7 +35,7 @@ public class PhpServiceTest extends TestBase {
   public void testConfigurationOneFolderWithSQLInFolder() throws IOException {
     final var edbID = 49471L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> system.genConfiguration(edbID, false));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -45,7 +45,7 @@ public class PhpServiceTest extends TestBase {
   public void testLibrarySystem() throws IOException {
     final var edbID = 49434L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> system.genConfiguration(edbID, false));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -55,7 +55,7 @@ public class PhpServiceTest extends TestBase {
   public void testMonitoringSystem() throws IOException {
     final var edbID = 49503L;
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
-    assertDoesNotThrow(() -> system.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> system.genConfiguration(edbID, false));
     FileUtils.deleteDirectory(dir);
   }
 }

@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -63,9 +62,6 @@ public class SystemCve2Docker {
     this.dockerHubService = dockerHubService;
   }
 
-  @PostConstruct
-  public void registerService() {}
-
   /**
    * Method to generate configuration for the exploit provided. The configuration consist in
    * docker-compose, env file e other files depending on the exploit type.
@@ -75,7 +71,7 @@ public class SystemCve2Docker {
    * @param edbID not null
    * @param removeConfig if true the configuration will be removed after it has been setup.
    */
-  public void genConfigurationFromExploit(@NonNull Long edbID, boolean removeConfig)
+  public void genConfiguration(@NonNull Long edbID, boolean removeConfig)
       throws GenerationException {
     log.info(" --- START Generation Request for edbID = {} ---", edbID);
     ExploitDB exploitDB = null;
@@ -161,7 +157,7 @@ public class SystemCve2Docker {
         if (Objects.nonNull(endDate) && date.after(endDate)) continue;
 
         try {
-          genConfigurationFromExploit(Long.parseLong(record.get("id")), removeConfig);
+          genConfiguration(Long.parseLong(record.get("id")), removeConfig);
           printer.printRecord(
               record.get("id"), record.get("description"), record.get("date"), "SUCCESS", "");
         } catch (GenerationException e) {

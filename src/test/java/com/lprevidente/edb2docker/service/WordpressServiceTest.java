@@ -26,7 +26,7 @@ public class WordpressServiceTest extends TestBase {
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     FileUtils.deleteDirectory(dir);
 
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
     FileUtils.deleteDirectory(dir);
   }
 
@@ -36,7 +36,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginFormMaker() throws IOException {
     final var edbID = 44559L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -51,7 +51,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginWPPaginate() throws IOException {
     final var edbID = 49355L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -66,7 +66,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginColorbox() throws IOException {
     final var edbID = 48919L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -83,7 +83,7 @@ public class WordpressServiceTest extends TestBase {
   public void genConfigurationPluginEasyContactForm() {
     final var edbID = 49427L;
     assertThrows(
-        NoVulnerableAppException.class, () -> service.genConfigurationFromExploit(edbID, false));
+        NoVulnerableAppException.class, () -> service.genConfiguration(edbID, false));
   }
 
   /**
@@ -94,7 +94,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationPluginFromSoftwareLink() throws IOException {
     var edbID = 49544L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -110,7 +110,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationTheme() throws IOException {
     final var edbID = 48083L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -126,7 +126,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationThemeWithVulnerableApp() throws IOException {
     final var edbID = 39552L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -139,7 +139,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationCore() throws IOException {
     final var edbID = 47557L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -152,7 +152,7 @@ public class WordpressServiceTest extends TestBase {
   @Test
   public void genConfigurationCore2Version() throws IOException {
     final var edbID = 41224L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");

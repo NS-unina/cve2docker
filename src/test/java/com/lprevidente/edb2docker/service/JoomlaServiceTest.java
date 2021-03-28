@@ -25,7 +25,7 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentJsJob() throws IOException {
     final var edbID = 47232L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -38,7 +38,7 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentEasyShop() throws IOException {
     final var edbID = 46219L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -53,7 +53,7 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentProclaim() throws IOException {
     final var edbID = 44164L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -67,7 +67,7 @@ public class JoomlaServiceTest extends TestBase {
   @Test
   public void genConfigurationComponentGoogleMapLandkarten() throws IOException {
     final var edbID = 44113L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -83,14 +83,14 @@ public class JoomlaServiceTest extends TestBase {
     final var edbID = 48202L;
 
     assertThrows(
-        NoVulnerableAppException.class, () -> service.genConfigurationFromExploit(edbID, false));
+        NoVulnerableAppException.class, () -> service.genConfiguration(edbID, false));
   }
 
   /** Exploit Joomla <i>Core - 3.6.4</i> with Docker image and NO reference to Core. */
   @Test
   public void genConfigurationCoreWithImage() throws IOException {
     final var edbID = 41157L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");
@@ -104,14 +104,14 @@ public class JoomlaServiceTest extends TestBase {
   public void genConfigurationCoreWithNoImage() {
     final var edbID = 41156L;
 
-    assertThrows(ImageNotFoundException.class, () -> service.genConfigurationFromExploit(edbID, false));
+    assertThrows(ImageNotFoundException.class, () -> service.genConfiguration(edbID, false));
   }
 
   /** Exploit Joomla <i>Core - 3.9.1</i> with reference to Core Docker image. */
   @Test
   public void genConfigurationCoreWithReference() throws IOException {
     final var edbID = 46200L;
-    assertDoesNotThrow(() -> service.genConfigurationFromExploit(edbID, false));
+    assertDoesNotThrow(() -> service.genConfiguration(edbID, false));
 
     File dir = new File(EXPLOITS_DIR + "/" + edbID);
     var env = new File(dir, ".env");

@@ -62,7 +62,7 @@ public class CommandLineExecutor implements CommandLineRunner {
       if (cmd.hasOption("id")) {
         for (String id : cmd.getOptionValues("id")) {
           try {
-            system.genConfigurationFromExploit(Long.parseLong(id), false);
+            system.genConfiguration(Long.parseLong(id), false);
           } catch (NumberFormatException e) {
             log.error("The id provided is not a number. Skipping it!");
           } catch (GenerationException e) {
