@@ -39,7 +39,7 @@ You can also generate *multiple configurations* at the same time:
  java -jar edb2docker.jar -id 12345 6789 87652
 ```
 
-If the generation **success**, you can find it in `content/generated/{edbid}`
+If the generation **success**, you can find it in `exploits/{edbid}`
 where you just need to launch the command `docker-compose up`.
 
 ### Generate configurations based on criteria
