@@ -25,6 +25,13 @@ You need to have:
 - [**Docker**](https://docs.docker.com/engine/)
 - [**Docker-compose**](https://docs.docker.com/compose/)
 
+### Build   
+Run with the following command to build: 
+``` 
+mvn package -DskipTests 
+```  
+Now you can use the software present in `target` folder.  
+
 ### Generate configuration starting from EdbID
 
 If you are interested in generating a configuration for one particular exploit, you only need the **EdbID**:
