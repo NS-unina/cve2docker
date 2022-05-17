@@ -262,6 +262,7 @@ public class WordpressService implements IGenerateService {
       // In case of error, delete the main directory in order to not leave traces
       try {
         FileUtils.deleteDirectory(exploitDir);
+        // throw new IOException();
       } catch (IOException ignored) {
       }
       throw e;
