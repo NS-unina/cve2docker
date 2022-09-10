@@ -105,5 +105,20 @@ For the PHP webapps, the automatization process is more complicated. Currently, 
 - a *software link** related to **sourcecodester** or **phpgurukul**.
 
 In most cases, there is a DB dump that must import, so the *system also automatically* find it and import it. *Please
-note** the non-automatable step is to *modify the php file to connect to the database*.
+note** the non-automatable step is to *modify the php file to connect to the database*.  
+
+## Citation 
+If you find this code useful in your research, please, consider citing our paper:
+```
+ @inproceedings{Caturano2022,
+  doi = {10.1109/icecet55527.2022.9872859},
+  year = {2022},
+  month = jul,
+  publisher = {{IEEE}},
+  author = {Francesco Caturano and Nicola d{\textquotesingle}Ambrosio and Gaetano Perrone and Luigi Previdente and Simon Pietro Romano},
+  title = {{ExploitWP}2Docker: a Platform for Automating the Generation of Vulnerable {WordPress} Environments for Cyber Ranges},
+  booktitle = {2022 International Conference on Electrical,  Computer and Energy Technologies ({ICECET})}
+} 
+```
+
 
