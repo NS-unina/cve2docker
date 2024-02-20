@@ -22,7 +22,7 @@ public class CpeMatchVO {
   private Version versionEndIncluding;
   private Version versionEndExcluding;
 
-  @JsonProperty("cpe23Uri")
+  @JsonProperty("cpeName")
   public void setCpe(String cpe23Uri) {
     try {
       this.cpe = CPE.parse(cpe23Uri);

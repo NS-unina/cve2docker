@@ -60,6 +60,12 @@
             <artifactId>spring-boot-starter-log4j2</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240205</version>
+        </dependency>
+
         <!-- JavaX annotation -->
         <dependency>
             <groupId>javax.annotation</groupId>
@@ -67,13 +73,14 @@
             <version>${javax.version}</version>
         </dependency>
 
-        <!-- Lombok Annotations -->
+        <!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.22</version>
-            <optional>true</optional>
+            <version>1.18.30</version>
+            <scope>true</scope>
         </dependency>
+
 
         <!-- Retrofit HTTP Client -->
         <dependency>

@@ -7,7 +7,7 @@ spring:
   banner:
     location: banner.txt
   config:
-    exploits-url-github: https://raw.githubusercontent.com/offensive-security/exploitdb/master/files_exploits.csv
+    exploits-url-github: https://gitlab.com/exploit-database/exploitdb/-/raw/main/files_exploits.csv
     exploits-dir: ./exploits
     dockerhub:
       base-url: https://hub.docker.com

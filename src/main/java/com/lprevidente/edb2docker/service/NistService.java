@@ -1,7 +1,10 @@
 package com.lprevidente.edb2docker.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lprevidente.edb2docker.api.NistAPI;
 import com.lprevidente.edb2docker.entity.pojo.CPE;
+import com.lprevidente.edb2docker.entity.vo.nist.CpeMatchVO;
 import com.lprevidente.edb2docker.entity.vo.nist.SearchCpeVO;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +16,8 @@ import retrofit2.converter.jackson.JacksonConverterFactory;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -50,9 +55,23 @@ public class NistService {
    *     deserialization.
    */
   public SearchCpeVO getCpes(@NonNull CPE cpe) throws IOException {
+    List<CpeMatchVO> cpes = new ArrayList<>();
+
     log.debug("[getCpes] Request to NIST cpe = {}", cpe.toCpeString());
     var response = nistAPI.getCPEs(cpe.toCpeString()).execute();
+      assert response.body() != null;
+      for (final JsonNode objNode : response.body().getResultTemp()) {
+      String cpeExtracted = objNode.get("cpe").get("cpeName").textValue();
+      CpeMatchVO cpeMathced = new CpeMatchVO();
+      cpeMathced.setCpe(cpeExtracted);
+      cpes.add(cpeMathced);
+    }
+
+    response.body().setResultList(cpes);
+    //System.exit(0);
+
     log.debug("[getCpes] Response from NIST {}", response.code());
+    //return response.isSuccessful() && response.body() != null ? response.body() : null;
     return response.isSuccessful() && response.body() != null ? response.body() : null;
   }
 }

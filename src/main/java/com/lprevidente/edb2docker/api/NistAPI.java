@@ -7,6 +7,6 @@ import retrofit2.http.Query;
 
 public interface NistAPI {
 
-  @GET("cpes/1.0")
+  @GET("cpes/2.0")
   Call<SearchCpeVO> getCPEs(@Query(value = "cpeMatchString", encoded = true) String cpe);
 }
